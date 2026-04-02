@@ -29,6 +29,7 @@ interface RegisterData {
   email: string
   password: string
   fullName: string
+  restaurantName: string
 }
 
 const AuthContext = createContext<AuthContextType | null>(null)
@@ -39,38 +40,48 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     // Nếu đã có FAKE_USER thì bỏ qua restore từ localStorage
-    const stored = localStorage.getItem('user')
-    if (stored) {
-      try {
-        // eslint-disable-next-line react-hooks/set-state-in-effect
-        setUser(JSON.parse(stored))
-      } catch { /* ignore */ }
+    if (FAKE_USER) {
+      setIsLoading(false)
+      return
     }
-
-    setIsLoading(false)
+    const restore = async () => {
+      try {
+        const stored = localStorage.getItem('user')
+        if (stored) {
+          setUser(JSON.parse(stored))
+        }
+      } catch (err) {
+        console.error('Failed to restore session', err)
+      } finally {
+        setIsLoading(false)
+      }
+    }
+    restore()
   }, [])
 
   const login = async (username: string, password: string) => {
-    const { data } = await api.post('/api/auth/login', { username, password })
-    if (data.token) {
-      localStorage.setItem('accessToken', data.token)
+    setIsLoading(true)
+    try {
+      const { data } = await api.post('/api/auth/login', { username, password })
+      if (data.token) {
+        localStorage.setItem('accessToken', data.token)
+        const userData: User = {
+          id: parseJwt(data.token)?.nameid || '',
+          username,
+          email: parseJwt(data.token)?.email || '',
+          fullName: parseJwt(data.token)?.fullName || username,
+          role: parseJwt(data.token)?.role || 'User',
+        }
+        localStorage.setItem('user', JSON.stringify(userData))
+        setUser(userData)
+      }
+    } finally {
+      setIsLoading(false)
     }
-    // Fetch user profile after login
-    // For now, decode from token claims or use register response
-    const userData: User = {
-      id: parseJwt(data.token)?.nameid || '',
-      username,
-      email: parseJwt(data.token)?.email || '',
-      fullName: parseJwt(data.token)?.fullName || username,
-      role: parseJwt(data.token)?.role || 'User',
-    }
-    localStorage.setItem('user', JSON.stringify(userData))
-    setUser(userData)
   }
 
   const register = async (data: RegisterData) => {
-    const { data: user } = await api.post('/api/auth/register', data)
-    return user
+    await api.post('/api/auth/register', data)
   }
 
   const logout = async () => {

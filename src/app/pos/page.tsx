@@ -63,7 +63,8 @@ export default function POSPage() {
 
   const [orderSuccess, setOrderSuccess] = useState(false)
   const [loading, setLoading] = useState(false)
-
+  const [currentOrderDetails, setCurrentOrderDetails] = useState<any>(null)
+  
   const { data: tables = [], refetch: refetchTables } = useTables(BRANCH_ID)
   const { data: categories = [] } = useMenuCategories(RESTAURANT_ID)
   const { data: allItems = [] } = useMenuItems(RESTAURANT_ID)
@@ -72,14 +73,34 @@ export default function POSPage() {
   const createOrder = useCreateOrder()
   const addOrderItem = useAddOrderItem()
 
+  // Fetch current order when table changes
+  useEffect(() => {
+    const fetchOrder = async () => {
+      if (selectedTable?.currentOrderId) {
+        try {
+          const { data } = await api.get(`/api/orders/${selectedTable.currentOrderId}`)
+          setCurrentOrderDetails(data)
+        } catch {
+          setCurrentOrderDetails(null)
+        }
+      } else {
+        setCurrentOrderDetails(null)
+      }
+    }
+    fetchOrder()
+  }, [selectedTable])
+
   const filteredItems = allItems.filter((item: any) => {
     const matchCategory = selectedCategory === 'all' || item.categoryId === selectedCategory
     const matchSearch = item.name.toLowerCase().includes(searchQuery.toLowerCase())
     return matchCategory && matchSearch && item.isAvailable
   })
 
-  // Calculate Totals
-  const subtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0)
+  // Calculate Totals (Existing + Cart)
+  const existingSubtotal = currentOrderDetails?.subtotal || 0
+  const cartSubtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0)
+  const subtotal = existingSubtotal + cartSubtotal
+  
   let discount = 0
   if (appliedPromotion && appliedPromotion.promotion) {
     const p = appliedPromotion.promotion
@@ -159,8 +180,7 @@ export default function POSPage() {
       if (selectedTable.currentOrderId) {
         // Append to existing order
         for (const item of cart) {
-          await addOrderItem.mutateAsync({
-            orderId: selectedTable.currentOrderId,
+          await api.post(`/api/orders/${selectedTable.currentOrderId}/items`, {
             menuItemId: item.menuItemId,
             quantity: item.quantity,
             note: item.note,
@@ -185,7 +205,16 @@ export default function POSPage() {
       setAppliedPromotion(null)
       setVoucherCode('')
       setOrderSuccess(true)
-      refetchTables()
+      
+      // Refresh current table and order info
+      const { data: updatedTables } = await api.get(`/api/tables/branch/${BRANCH_ID}`)
+      refetchTables() // Sync UI
+      const updatedTable = updatedTables.find((t: any) => t.id === selectedTable.id)
+      if (updatedTable?.currentOrderId) {
+        const { data: updatedOrder } = await api.get(`/api/orders/${updatedTable.currentOrderId}`)
+        setCurrentOrderDetails(updatedOrder)
+      }
+      
       setTimeout(() => setOrderSuccess(false), 3000)
     } catch (err) {
       console.error(err)

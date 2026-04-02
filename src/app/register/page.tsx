@@ -7,7 +7,7 @@ import { useAuth } from '@/lib/auth'
 import { UtensilsCrossed, Loader2 } from 'lucide-react'
 
 export default function RegisterPage() {
-  const [form, setForm] = useState({ username: '', email: '', password: '', fullName: '' })
+  const [form, setForm] = useState({ username: '', email: '', password: '', fullName: '', restaurantName: '' })
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState(false)
@@ -51,7 +51,7 @@ export default function RegisterPage() {
               <UtensilsCrossed size={32} color="white" />
             </div>
             <h1 style={{ fontSize: 24, fontWeight: 700, color: '#0f172a', marginBottom: 4 }}>Tạo tài khoản</h1>
-            <p style={{ color: '#64748b', fontSize: 14 }}>Đăng ký tài khoản quản lý nhà hàng</p>
+            <p style={{ color: '#64748b', fontSize: 14 }}>Đăng ký tài khoản quản lý nhà hàng (Owner)</p>
           </div>
 
           {success && (
@@ -73,9 +73,10 @@ export default function RegisterPage() {
 
           <form onSubmit={handleSubmit}>
             {[
-              { name: 'fullName', label: 'Họ và tên', type: 'text', placeholder: 'Nguyễn Văn A' },
+              { name: 'restaurantName', label: 'Tên nhà hàng/chuỗi', type: 'text', placeholder: 'VD: Pfxsoft Restaurant' },
+              { name: 'fullName', label: 'Họ và tên chủ sở hữu', type: 'text', placeholder: 'Nguyễn Văn A' },
               { name: 'username', label: 'Tên đăng nhập', type: 'text', placeholder: 'username' },
-              { name: 'email', label: 'Email', type: 'email', placeholder: 'email@example.com' },
+              { name: 'email', label: 'Email liên hệ', type: 'email', placeholder: 'email@example.com' },
               { name: 'password', label: 'Mật khẩu', type: 'password', placeholder: '••••••••' },
             ].map(field => (
               <div key={field.name} style={{ marginBottom: 16 }}>
