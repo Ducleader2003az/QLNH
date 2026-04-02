@@ -63,7 +63,8 @@ export default function POSPage() {
   
   const [orderSuccess, setOrderSuccess] = useState(false)
   const [loading, setLoading] = useState(false)
-
+  const [currentOrderDetails, setCurrentOrderDetails] = useState<any>(null)
+  
   const { data: tables = [], refetch: refetchTables } = useTables(BRANCH_ID)
   const { data: categories = [] } = useMenuCategories(RESTAURANT_ID)
   const { data: allItems = [] } = useMenuItems(RESTAURANT_ID)
@@ -72,14 +73,34 @@ export default function POSPage() {
   const createOrder = useCreateOrder()
   const addOrderItem = useAddOrderItem()
 
+  // Fetch current order when table changes
+  useEffect(() => {
+    const fetchOrder = async () => {
+      if (selectedTable?.currentOrderId) {
+        try {
+          const { data } = await api.get(`/api/orders/${selectedTable.currentOrderId}`)
+          setCurrentOrderDetails(data)
+        } catch {
+          setCurrentOrderDetails(null)
+        }
+      } else {
+        setCurrentOrderDetails(null)
+      }
+    }
+    fetchOrder()
+  }, [selectedTable])
+
   const filteredItems = allItems.filter((item: any) => {
     const matchCategory = selectedCategory === 'all' || item.categoryId === selectedCategory
     const matchSearch = item.name.toLowerCase().includes(searchQuery.toLowerCase())
     return matchCategory && matchSearch && item.isAvailable
   })
 
-  // Calculate Totals
-  const subtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0)
+  // Calculate Totals (Existing + Cart)
+  const existingSubtotal = currentOrderDetails?.subtotal || 0
+  const cartSubtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0)
+  const subtotal = existingSubtotal + cartSubtotal
+  
   let discount = 0
   if (appliedPromotion) {
     if (appliedPromotion.discountType === 'percentage') {
@@ -131,8 +152,7 @@ export default function POSPage() {
       if (selectedTable.currentOrderId) {
         // Append to existing order
         for (const item of cart) {
-          await addOrderItem.mutateAsync({
-            orderId: selectedTable.currentOrderId,
+          await api.post(`/api/orders/${selectedTable.currentOrderId}/items`, {
             menuItemId: item.menuItemId,
             quantity: item.quantity,
             note: item.note,
@@ -157,7 +177,16 @@ export default function POSPage() {
       setAppliedPromotion(null)
       setVoucherCode('')
       setOrderSuccess(true)
-      refetchTables()
+      
+      // Refresh current table and order info
+      const { data: updatedTables } = await api.get(`/api/tables/branch/${BRANCH_ID}`)
+      refetchTables() // Sync UI
+      const updatedTable = updatedTables.find((t: any) => t.id === selectedTable.id)
+      if (updatedTable?.currentOrderId) {
+        const { data: updatedOrder } = await api.get(`/api/orders/${updatedTable.currentOrderId}`)
+        setCurrentOrderDetails(updatedOrder)
+      }
+      
       setTimeout(() => setOrderSuccess(false), 3000)
     } catch (err) {
       console.error(err)
@@ -339,14 +368,38 @@ export default function POSPage() {
           {/* Cart Items List */}
           <div className="bg-white rounded-[2.5rem] border border-gray-100 shadow-sm flex-1 flex flex-col overflow-hidden">
             <div className="flex-1 overflow-y-auto p-6 space-y-4 custom-scrollbar">
-               {cart.length === 0 ? (
+               
+               {/* EXISTING ITEMS (FROM DB) */}
+               {currentOrderDetails?.items?.map((item: any) => (
+                 <div key={item.id} className="flex flex-col gap-2 p-4 bg-blue-50/50 border border-blue-100 rounded-3xl group shadow-sm opacity-80">
+                    <div className="flex justify-between items-start">
+                       <span className="font-black text-sm text-gray-900 uppercase tracking-tight flex-1">{item.menuItemName}</span>
+                       <span className="font-black text-blue-600 text-sm">{item.subTotal.toLocaleString()}đ</span>
+                    </div>
+                    <div className="flex items-center justify-between mt-1">
+                       <span className="text-[10px] font-bold text-gray-500 bg-white px-2 py-1 rounded-lg border border-gray-100">Số lượng: {item.quantity}</span>
+                       <span className={`text-[10px] font-black uppercase px-2 py-1 rounded-lg ${
+                         item.status === 'served' ? 'bg-green-100 text-green-700' : 
+                         item.status === 'ready' ? 'bg-orange-100 text-orange-700' :
+                         'bg-gray-100 text-gray-600'
+                       }`}>
+                         {item.status === 'pending' ? 'Chờ bếp' : 
+                          item.status === 'preparing' ? 'Đang nấu' : 
+                          item.status === 'ready' ? 'Xong' : 'Đã giao'}
+                       </span>
+                    </div>
+                 </div>
+               ))}
+
+               {/* NEW ITEMS (IN SESSION CART) */}
+               {cart.length === 0 && !currentOrderDetails?.items?.length ? (
                  <div className="h-full flex flex-col items-center justify-center opacity-20">
                    <ShoppingCart size={48} className="mb-2" />
                    <p className="font-black uppercase tracking-widest text-xs">Giỏ hàng trống</p>
                  </div>
                ) : (
                  cart.map(item => (
-                   <div key={item.menuItemId} className="flex flex-col gap-2 p-4 bg-gray-50 rounded-3xl group shadow-sm">
+                   <div key={item.menuItemId} className="flex flex-col gap-2 p-4 bg-gray-50 rounded-3xl group shadow-sm border border-dashed border-gray-200">
                       <div className="flex justify-between items-start">
                          <span className="font-black text-sm text-gray-900 uppercase tracking-tight flex-1">{item.name}</span>
                          <span className="font-black text-blue-600 text-sm">{(item.price * item.quantity).toLocaleString()}đ</span>

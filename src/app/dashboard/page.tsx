@@ -277,7 +277,7 @@ export default function DashboardPage() {
                       <p className="text-blue-500 text-xs mt-1">Hôm nay có {todayReservations} lượt đặt bàn cần chuẩn bị.</p>
                    </Link>
                  )}
-                 {promotions.filter(p => !p.isActive).length > 0 && (
+                 {promotions.filter((p:any) => !p.isActive).length > 0 && (
                    <Link href="/promotions" className="block p-4 bg-gray-50 rounded-2xl border border-gray-100 hover:scale-[1.02] transition-transform">
                       <p className="text-gray-700 font-bold text-sm">Khuyến mãi mới</p>
                       <p className="text-gray-500 text-xs mt-1">Có chương trình khuyến mãi chưa kích hoạt.</p>
