@@ -64,6 +64,9 @@ interface InventoryItem {
 
 export default function DashboardPage() {
   const { user } = useAuth()
+  const branchId = user?.branchId || ''
+  const restaurantId = user?.restaurantId || ''
+
   const [mounted, setMounted] = useState(false)
   const [currentDateStr, setCurrentDateStr] = useState('')
   const today = new Date().toISOString().split('T')[0]
@@ -78,12 +81,12 @@ export default function DashboardPage() {
     }))
   }, [])
 
-  const { data: activeOrders = [] } = useActiveOrders(BRANCH_ID)
-  const { data: tables = [] } = useTables(BRANCH_ID)
-  const { data: payments = [] } = useRecentPayments(BRANCH_ID)
-  const { data: reservations = [] } = useReservations(BRANCH_ID, today)
-  const { data: inventoryItems = [] } = useInventoryItems(BRANCH_ID)
-  const { data: promotions = [] } = usePromotions(RESTAURANT_ID)
+  const { data: activeOrders = [] } = useActiveOrders(branchId)
+  const { data: tables = [] } = useTables(branchId)
+  const { data: payments = [] } = useRecentPayments(branchId)
+  const { data: reservations = [] } = useReservations(branchId, today)
+  const { data: inventoryItems = [] } = useInventoryItems(branchId)
+  const { data: promotions = [] } = usePromotions(restaurantId)
 
   const occupiedTables = tables.filter((t: Table) => t.status === 'occupied').length
   const todayRevenue = payments.reduce((sum: number, p: Payment) => sum + p.finalAmount, 0)

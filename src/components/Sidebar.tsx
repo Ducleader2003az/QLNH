@@ -19,41 +19,58 @@ import {
   Package,
   TicketPercent,
   History,
-  Settings,
+  KeyRound,
 } from 'lucide-react'
 
+// Menu items với phân quyền: roles = [] nghĩa là tất cả đều thấy
 const navItems = [
-  { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { href: '/pos', label: 'POS - Bán hàng', icon: UtensilsCrossed },
-  { href: '/kitchen', label: 'Bếp (KDS)', icon: ChefHat },
-  { href: '/reservations', label: 'Đặt bàn', icon: CalendarDays },
-  // { href: '/customers', label: 'Khách hàng', icon: Users },
-  // { href: '/employees', label: 'Nhân viên', icon: UserRoundCheck },
-  // { href: '/inventory', label: 'Kho hàng', icon: Package },
-  { href: '/promotions', label: 'Khuyến mãi', icon: TicketPercent },
-  { href: '/orders', label: 'Đơn hàng', icon: ShoppingCart },
-  { href: '/payments', label: 'Thanh toán', icon: CreditCard },
-  { href: '/tables', label: 'Quản lý bàn', icon: BookOpen },
-  { href: '/menu', label: 'Thực đơn', icon: BookOpen },
-  { href: '/restaurants', label: 'Nhà hàng', icon: Building2 },
-  { href: '/branches', label: 'Chi nhánh', icon: GitBranch },
-  { href: '/audit', label: 'Audit Log', icon: History },
+  { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, roles: [] },
+  { href: '/pos', label: 'POS - Bán hàng', icon: UtensilsCrossed, roles: [] },
+  { href: '/kitchen', label: 'Bếp (KDS)', icon: ChefHat, roles: [] },
+  { href: '/orders', label: 'Đơn hàng', icon: ShoppingCart, roles: [] },
+  { href: '/tables', label: 'Quản lý bàn', icon: BookOpen, roles: [] },
+  { href: '/reservations', label: 'Đặt bàn', icon: CalendarDays, roles: [] },
+  { href: '/menu', label: 'Thực đơn', icon: BookOpen, roles: ['Owner', 'manager'] },
+  { href: '/payments', label: 'Thanh toán', icon: CreditCard, roles: ['Owner', 'manager', 'cashier'] },
+  { href: '/promotions', label: 'Khuyến mãi', icon: TicketPercent, roles: ['Owner', 'manager'] },
+  // { href: '/customers', label: 'Khách hàng', icon: Users, roles: ['Owner', 'manager', 'cashier'] },
+  // { href: '/employees', label: 'Nhân viên', icon: UserRoundCheck, roles: ['Owner', 'manager'] },
+  // { href: '/inventory', label: 'Kho hàng', icon: Package, roles: ['Owner', 'manager'] },
+
+  // Owner only
+  { href: '/accounts', label: 'Tài khoản', icon: KeyRound, roles: ['Owner', 'manager'] },
+  { href: '/restaurants', label: 'Nhà hàng', icon: Building2, roles: ['Owner'] },
+  { href: '/branches', label: 'Chi nhánh', icon: GitBranch, roles: ['Owner', 'manager'] },
+  { href: '/audit', label: 'Audit Log', icon: History, roles: ['Owner'] },
 ]
+
+const ROLE_LABEL: Record<string, string> = {
+  Owner: 'Chủ sở hữu',
+  manager: 'Quản lý',
+  cashier: 'Thu ngân',
+  waiter: 'Phục vụ',
+  chef: 'Bếp trưởng',
+  bartender: 'Pha chế',
+}
 
 export default function Sidebar() {
   const pathname = usePathname()
   const { user, logout } = useAuth()
 
+  const visibleItems = navItems.filter(item =>
+    item.roles.length === 0 || item.roles.includes(user?.role || '')
+  )
+
   return (
     <div className="sidebar">
-      {/* Logo Pfxsoft - Final horizontal big version */}
+      {/* Logo */}
       <div style={{ padding: '24px 16px', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
-        <Link href="/dashboard" style={{ 
-          background: 'white', 
+        <Link href="/dashboard" style={{
+          background: 'white',
           height: '75px',
-          borderRadius: '16px', 
-          display: 'flex', 
-          alignItems: 'center', 
+          borderRadius: '16px',
+          display: 'flex',
+          alignItems: 'center',
           justifyContent: 'center',
           boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
           padding: '0',
@@ -61,25 +78,24 @@ export default function Sidebar() {
           cursor: 'pointer',
           textDecoration: 'none'
         }}>
-          <img 
-            src="/logo.png" 
-            alt="Pfxsoft Logo" 
-            style={{ 
-              width: '100%', 
-              height: 'auto', 
+          <img
+            src="/logo.png"
+            alt="Pfxsoft Logo"
+            style={{
+              width: '100%',
+              height: 'auto',
               maxHeight: '110px',
               objectFit: 'contain',
-              // Subtle zoom to clear some of the white padding in source
               transform: 'scale(1.7)',
               transition: 'transform 0.3s ease'
-            }} 
+            }}
           />
         </Link>
       </div>
 
-      {/* Navigation */}
+      {/* Navigation - phân quyền theo role */}
       <nav style={{ flex: 1, padding: '12px 0', overflowY: 'auto' }}>
-        {navItems.map((item) => {
+        {visibleItems.map((item) => {
           const Icon = item.icon
           const isActive = pathname === item.href
           return (
@@ -95,12 +111,20 @@ export default function Sidebar() {
         })}
       </nav>
 
-      {/* User info */}
+      {/* User info & Logout */}
       <div style={{ borderTop: '1px solid rgba(255,255,255,0.1)', padding: '12px 8px' }}>
         {user && (
           <div style={{ padding: '8px 16px', marginBottom: 4 }}>
-            <div style={{ fontSize: 13, fontWeight: 600, color: 'white' }}>{user.fullName}</div>
-            <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)' }}>{user.role}</div>
+            <div style={{ fontSize: 13, fontWeight: 700, color: 'white', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {user.fullName}
+            </div>
+            <div style={{
+              fontSize: 11, color: 'rgba(255,255,255,0.5)',
+              background: 'rgba(255,255,255,0.08)',
+              borderRadius: 6, padding: '2px 6px', display: 'inline-block', marginTop: 2
+            }}>
+              {ROLE_LABEL[user.role] || user.role}
+            </div>
           </div>
         )}
         <button

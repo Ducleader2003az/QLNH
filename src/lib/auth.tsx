@@ -13,6 +13,8 @@ interface User {
   email: string
   fullName: string
   role: string
+  restaurantId?: string
+  branchId?: string
 }
 
 interface AuthContextType {
@@ -71,6 +73,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           email: parseJwt(data.token)?.email || '',
           fullName: parseJwt(data.token)?.fullName || username,
           role: parseJwt(data.token)?.role || 'User',
+          restaurantId: parseJwt(data.token)?.restaurantId,
+          branchId: parseJwt(data.token)?.branchId,
         }
         localStorage.setItem('user', JSON.stringify(userData))
         setUser(userData)
@@ -122,6 +126,8 @@ function parseJwt(token: string): Record<string, string> | null {
       email: decoded['http://schemas.xmlsoap.org/ws/2005/05/identity/claims/emailaddress'],
       role: decoded['http://schemas.microsoft.com/ws/2008/06/identity/claims/role'],
       fullName: decoded['fullName'],
+      restaurantId: decoded['restaurantId'] || '',
+      branchId: decoded['branchId'] || '',
     }
   } catch { return null }
 }

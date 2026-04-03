@@ -28,8 +28,7 @@ import {
 } from 'lucide-react'
 import api from '@/lib/api'
 
-const RESTAURANT_ID = '00000000-0000-0000-0000-000000000001'
-const BRANCH_ID = '00000000-0000-0000-0000-000000000001'
+import { useAuth } from '@/lib/auth'
 
 interface CartItem {
   menuItemId: string
@@ -48,6 +47,10 @@ interface Customer {
 }
 
 export default function POSPage() {
+  const { user } = useAuth()
+  const branchId = user?.branchId || ''
+  const restaurantId = user?.restaurantId || ''
+
   const [selectedTable, setSelectedTable] = useState<any>(null)
   const [selectedCategory, setSelectedCategory] = useState<string>('all')
   const [cart, setCart] = useState<CartItem[]>([])
@@ -65,10 +68,10 @@ export default function POSPage() {
   const [loading, setLoading] = useState(false)
   const [currentOrderDetails, setCurrentOrderDetails] = useState<any>(null)
   
-  const { data: tables = [], refetch: refetchTables } = useTables(BRANCH_ID)
-  const { data: categories = [] } = useMenuCategories(RESTAURANT_ID)
-  const { data: allItems = [] } = useMenuItems(RESTAURANT_ID)
-  const { data: customers = [] } = useCustomers(RESTAURANT_ID, customerSearch)
+  const { data: tables = [], refetch: refetchTables } = useTables(branchId)
+  const { data: categories = [] } = useMenuCategories(restaurantId)
+  const { data: allItems = [] } = useMenuItems(restaurantId)
+  const { data: customers = [] } = useCustomers(restaurantId, customerSearch)
 
   const createOrder = useCreateOrder()
   const addOrderItem = useAddOrderItem()
@@ -207,7 +210,7 @@ export default function POSPage() {
       setOrderSuccess(true)
       
       // Refresh current table and order info
-      const { data: updatedTables } = await api.get(`/api/tables/branch/${BRANCH_ID}`)
+      const { data: updatedTables } = await api.get(`/api/tables/branch/${branchId}`)
       refetchTables() // Sync UI
       const updatedTable = updatedTables.find((t: any) => t.id === selectedTable.id)
       if (updatedTable?.currentOrderId) {
