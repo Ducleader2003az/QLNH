@@ -123,7 +123,9 @@ export default function TablesPage() {
 
   const getQRUrl = (table: Table) => {
     if (typeof window === 'undefined') return ''
-    return `${window.location.origin}/order/${table.branchId}/${table.tableNumber}`
+    console.log(`${window.location.origin}/order/${table.id}`);
+    
+    return `${window.location.origin}/order/${table.id}`
   }
 
   return (
@@ -139,6 +141,20 @@ export default function TablesPage() {
             <p style={{ color: '#64748b', fontSize: 13 }}>{tables.length} bàn {activeBranchId ? `· Chi nhánh đang xem` : ''}</p>
           </div>
           <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            {/* Owner: chọn chi nhánh để xem bàn */}
+            {isOwner && (
+              <select
+                className="input"
+                style={{ width: 200, height: 36, fontSize: 13 }}
+                value={selectedBranchId}
+                onChange={e => setSelectedBranchId(e.target.value)}
+              >
+                <option value="">-- Chọn chi nhánh --</option>
+                {(branches as Array<{id: string; name: string}>).map((b) => (
+                  <option key={b.id} value={b.id}>{b.name}</option>
+                ))}
+              </select>
+            )}
             <button className="btn btn-secondary" onClick={() => refetch()}>
               <RefreshCw size={15} />
               Làm mới

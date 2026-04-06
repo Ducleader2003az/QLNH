@@ -65,8 +65,9 @@ export default function ReservationsPage() {
     }
   }, [isOwner, selectedBranchId, branches])
 
+  const [branchId, setBranchId] = useState(user?.branchId || '')
   const [reservations, setReservations] = useState<Reservation[]>([])
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(false)
   const [selectedDate, setSelectedDate] = useState(() => new Date().toISOString().split('T')[0])
   const [showModal, setShowModal] = useState(false)
   const [form, setForm] = useState({ guestName: '', guestPhone: '', partySize: 2, reservedAt: '', note: '', branchId: '' })

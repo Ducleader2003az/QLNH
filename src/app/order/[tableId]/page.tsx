@@ -1,17 +1,19 @@
 'use client'
 
 import { useState, useEffect, use } from 'react'
-import { 
-  useMenuItems, 
-  useMenuCategories, 
-  useRestaurant 
+import {
+  useMenuItems,
+  useMenuCategories,
+  useRestaurant,
+  useTables,
+  useTableById
 } from '@/hooks/useApi'
-import { 
-  ShoppingCart, 
-  Plus, 
-  Minus, 
-  CheckCircle2, 
-  ChefHat, 
+import {
+  ShoppingCart,
+  Plus,
+  Minus,
+  CheckCircle2,
+  ChefHat,
   ArrowLeft,
   UtensilsCrossed,
   Clock,
@@ -19,32 +21,32 @@ import {
 } from 'lucide-react'
 import api from '@/lib/api'
 
-export default function GuestOrderPage({ params }: { params: Promise<{ branchId: string, tableNumber: string }> }) {
-  const { branchId, tableNumber } = use(params)
-  
+export default function GuestOrderPage({ params }: { params: Promise<{ tableId: string }> }) {
+  const { tableId } = use(params)
+
   // Since we don't have the restaurantId easily from branchId in current hooks, 
   // we'll fetch branch details first if needed, but for now 
   // let's assume we can use a generic "public" menu fetcher or use a fallback.
   // In a real app, the QR would contain the restaurantId.
   // For the demo, let's look for a table first to get its current status.
-  
+
   const [restaurantId, setRestaurantId] = useState<string>('')
   const [error, setError] = useState<string>('')
   const [cart, setCart] = useState<any[]>([])
   const [ordered, setOrdered] = useState(false)
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(false)
   const [selectedCategory, setSelectedCategory] = useState('all')
 
   const { data: menuCategories = [] } = useMenuCategories(restaurantId)
   const { data: menuItems = [] } = useMenuItems(restaurantId)
   const { data: restaurant } = useRestaurant(restaurantId)
+  const { data: table } = useTableById(tableId)
 
   useEffect(() => {
-    if (!branchId) return
+    if (!tableId) return
     setLoading(true)
     setError('')
-    console.log('Fetching branch:', branchId)
-    
+
     // Set a timeout to abort if server doesn't respond
     const timer = setTimeout(() => {
       if (loading) {
@@ -53,27 +55,30 @@ export default function GuestOrderPage({ params }: { params: Promise<{ branchId:
       }
     }, 10000)
 
-    api.get(`/api/branches/${branchId}`, { timeout: 8000 })
-      .then(({ data }) => {
-        clearTimeout(timer)
-        if (data && data.restaurantId) {
-          setRestaurantId(data.restaurantId)
+
+    if (table?.branchId) {
+      api.get(`/api/branches/${table?.branchId}`, { timeout: 8000 })
+        .then(({ data }) => {
+          clearTimeout(timer)
+          if (data && data.restaurantId) {
+            setRestaurantId(data.restaurantId)
+            setLoading(false)
+          } else {
+            setError('Không tìm thấy thông tin chi nhánh hợp lệ.')
+            setLoading(false)
+          }
+        })
+        .catch(err => {
+          clearTimeout(timer)
+          console.error('Failed to resolve restaurant from branch:', err)
+          const errMsg = err.code === 'ECONNABORTED' ? 'Máy chủ không phản hồi (Timeout)' : 'Chi nhánh không tồn tại hoặc lỗi kết nối.'
+          setError(errMsg)
           setLoading(false)
-        } else {
-          setError('Không tìm thấy thông tin chi nhánh hợp lệ.')
-          setLoading(false)
-        }
-      })
-      .catch(err => {
-        clearTimeout(timer)
-        console.error('Failed to resolve restaurant from branch:', err)
-        const errMsg = err.code === 'ECONNABORTED' ? 'Máy chủ không phản hồi (Timeout)' : 'Chi nhánh không tồn tại hoặc lỗi kết nối.'
-        setError(errMsg)
-        setLoading(false)
-      })
-      
+        })
+    }
+
     return () => clearTimeout(timer)
-  }, [branchId])
+  }, [table?.branchId])
 
   const addToCart = (item: any) => {
     setCart(prev => {
@@ -96,8 +101,7 @@ export default function GuestOrderPage({ params }: { params: Promise<{ branchId:
     setLoading(true)
     try {
       await api.post('/api/orders', {
-        branchId,
-        tableNumber: parseInt(tableNumber),
+        tableId: tableId,
         items: cart.map(i => ({ menuItemId: i.id, quantity: i.quantity })),
         source: 'QR'
       })
@@ -116,8 +120,8 @@ export default function GuestOrderPage({ params }: { params: Promise<{ branchId:
         <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-6" />
         <p className="text-gray-900 font-black uppercase tracking-widest text-sm">Đang kết nối thực đơn...</p>
         <p className="text-gray-400 text-[10px] mt-4 font-mono break-all opacity-50">
-          Branch: {branchId || 'waiting...'} <br/>
-          Table: {tableNumber || 'waiting...'}
+          Branch: {table?.branchId || 'waiting...'} <br />
+          Table: {table?.id || 'waiting...'}
         </p>
       </div>
     </div>
@@ -135,7 +139,7 @@ export default function GuestOrderPage({ params }: { params: Promise<{ branchId:
           Thử lại
         </button>
         <p className="text-[10px] font-mono text-gray-300 break-all px-4">
-          ID: {branchId} <br/>
+          ID: {table?.branchId || 'waiting...'} <br />
           API: {api.defaults.baseURL || 'relative'}
         </p>
       </div>
@@ -164,7 +168,7 @@ export default function GuestOrderPage({ params }: { params: Promise<{ branchId:
             <h1 className="text-2xl font-black tracking-tight">{restaurant?.name || 'Nhà hàng'}</h1>
             <div className="flex items-center gap-2 mt-1 opacity-70">
               <UtensilsCrossed size={14} />
-              <span className="text-sm font-bold uppercase tracking-widest">Bàn số {tableNumber}</span>
+              <span className="text-sm font-bold uppercase tracking-widest">Bàn số {table?.tableNumber}</span>
             </div>
           </div>
           <div className="w-12 h-12 bg-white/10 rounded-2xl flex items-center justify-center backdrop-blur-sm border border-white/10">
@@ -174,14 +178,14 @@ export default function GuestOrderPage({ params }: { params: Promise<{ branchId:
 
         {/* Categories Scroller */}
         <div className="flex gap-2 overflow-x-auto whitespace-nowrap pb-2 custom-scrollbar">
-          <button 
-            onClick={() => setSelectedCategory('all')} 
+          <button
+            onClick={() => setSelectedCategory('all')}
             className={`px-6 py-3 rounded-2xl text-xs font-black uppercase tracking-widest transition-colors ${selectedCategory === 'all' ? 'bg-white text-gray-900' : 'bg-white/10 text-white hover:bg-white/20'}`}>
             Tất cả
           </button>
           {menuCategories.map((c: any) => (
-            <button 
-              key={c.id} 
+            <button
+              key={c.id}
               onClick={() => setSelectedCategory(c.id)}
               className={`px-6 py-3 rounded-2xl text-xs font-black uppercase tracking-widest transition-colors ${selectedCategory === c.id ? 'bg-blue-600 text-white' : 'bg-white/10 text-white hover:bg-white/20'}`}>
               {c.name}
@@ -192,11 +196,11 @@ export default function GuestOrderPage({ params }: { params: Promise<{ branchId:
 
       {/* Menu Items */}
       <div className="p-4 grid grid-cols-2 gap-4 mt-4">
-        {menuItems.filter((i:any) => selectedCategory === 'all' || i.categoryId === selectedCategory).map((item: any) => (
+        {menuItems.filter((i: any) => selectedCategory === 'all' || i.categoryId === selectedCategory).map((item: any) => (
           <div key={item.id} className="bg-white rounded-[2rem] p-3 shadow-sm border border-gray-100 flex flex-col">
             <div className="aspect-square bg-gray-50 rounded-2xl mb-3 flex items-center justify-center overflow-hidden relative">
               {item.imageUrl ? <img src={item.imageUrl} className="w-full h-full object-cover" /> : <UtensilsCrossed size={32} className="text-gray-200" />}
-              <button 
+              <button
                 onClick={() => addToCart(item)}
                 className="absolute bottom-2 right-2 w-10 h-10 bg-blue-600 text-white rounded-xl shadow-lg flex items-center justify-center transform active:scale-95 transition-transform"
               >
@@ -223,8 +227,8 @@ export default function GuestOrderPage({ params }: { params: Promise<{ branchId:
               </div>
               <button onClick={() => setCart([])} className="text-gray-500 hover:text-white"><Minus size={20} /></button>
             </div>
-            
-            <button 
+
+            <button
               onClick={handleOrder}
               disabled={loading}
               className="w-full py-4 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl font-black uppercase tracking-widest text-sm shadow-xl shadow-blue-600/20 active:scale-95 transition-all"

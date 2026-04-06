@@ -56,7 +56,7 @@ export default function AccountsPage() {
   const [search, setSearch] = useState('')
   const [deleteTarget, setDeleteTarget] = useState<Account | null>(null)
 
-  const isOwner = user?.role === 'Owner'
+  const isOwner = user?.role === 'owner'
   const isManager = user?.role === 'manager' || isOwner
 
   const fetchData = useCallback(async () => {
@@ -69,6 +69,10 @@ export default function AccountsPage() {
       ])
       setAccounts(accRes.data)
       setBranches(brRes.data)
+
+      if (brRes.data) {
+        setForm(p => ({ ...p, branchId: p.branchId || brRes.data[0]?.id || '' }))
+      }
     } catch {
       setError('Không thể tải dữ liệu tài khoản')
     } finally {

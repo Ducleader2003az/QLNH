@@ -468,7 +468,7 @@ export default function MenuPage() {
                                   {allSel && <svg width="10" height="10" viewBox="0 0 10 10" fill="none"><path d="M2 5l2.5 2.5L8 3" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>}
                                 </button>
                               </th>
-                              {['Tên món', 'Danh mục', 'Giá'].map(h => <th key={h} style={{ padding: '10px 12px', textAlign: 'left', fontSize: 11, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{h}</th>)}
+                              {['Tên món', 'Ảnh', 'Danh mục', 'Giá'].map(h => <th key={h} style={{ padding: '10px 12px', textAlign: 'left', fontSize: 11, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{h}</th>)}
                             </tr>
                           </thead>
                           <tbody>
@@ -490,6 +490,15 @@ export default function MenuPage() {
                                     </div>
                                   </td>
                                   <td style={{ padding: '10px 12px', fontWeight: sel ? 700 : 500, color: sel ? '#1d4ed8' : '#0f172a' }}>{si.name}</td>
+                                  <td className="px-4 py-3">
+                                    {si.imageUrl ? (
+                                      <img src={si.imageUrl} alt={si.name} className="w-10 h-10 object-cover rounded-md" />
+                                    ) : (
+                                      <div className="w-10 h-10 bg-gray-200 border border-gray-300 rounded-md flex items-center justify-center">
+                                        <span className="text-gray-500 text-xs">IMG</span>
+                                      </div>
+                                    )}
+                                  </td>
                                   <td style={{ padding: '10px 12px' }}><span style={{ background: '#f1f5f9', color: '#64748b', padding: '2px 8px', borderRadius: 4, fontSize: 11, fontWeight: 500 }}>{si.categoryName || '—'}</span></td>
                                   <td style={{ padding: '10px 12px', fontWeight: 600, color: '#2563eb' }}>{si.price.toLocaleString('vi-VN')}đ</td>
                                 </tr>

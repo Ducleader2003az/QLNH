@@ -48,6 +48,18 @@ export function useTables(branchId: string) {
   })
 }
 
+export function useTableById(tableId: string) {
+  return useQuery({
+    queryKey: ['tables', tableId],
+    queryFn: async () => {
+      const { data } = await api.get(`/api/tables/${tableId}`)
+      return data
+    },
+    enabled: !!tableId,
+    refetchOnMount: true,
+  })
+}
+
 export function useUpdateTableStatus() {
   const queryClient = useQueryClient()
   return useMutation({

@@ -31,7 +31,6 @@ export default function OrdersPage() {
   const [payMethod, setPayMethod] = useState('cash')
   const [discount, setDiscount] = useState('0')
   const [paying, setPaying] = useState(false)
-console.log(orders);
 
   const filtered = filterStatus === 'all' ? orders : orders.filter((o: Order) => o.status === filterStatus)
 
