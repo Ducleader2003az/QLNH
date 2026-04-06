@@ -45,6 +45,7 @@ const navItems = [
 ]
 
 const ROLE_LABEL: Record<string, string> = {
+  owner: 'Chủ sở hữu',
   Owner: 'Chủ sở hữu',
   manager: 'Quản lý',
   cashier: 'Thu ngân',
@@ -57,9 +58,11 @@ export default function Sidebar() {
   const pathname = usePathname()
   const { user, logout } = useAuth()
 
-  const visibleItems = navItems.filter(item =>
-    item.roles.length === 0 || item.roles.includes(user?.role || '')
-  )
+  const visibleItems = navItems.filter(item => {
+    if (item.roles.length === 0) return true;
+    const userRole = (user?.role || '').toLowerCase();
+    return item.roles.some(r => r.toLowerCase() === userRole);
+  })
 
   return (
     <div className="sidebar">
