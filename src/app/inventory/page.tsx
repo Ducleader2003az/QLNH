@@ -5,6 +5,7 @@ import AuthLayout from '@/components/AuthLayout'
 import api from '@/lib/api'
 
 import { useAuth } from '@/lib/auth'
+import { SelectBox } from '@/components/SelectBox'
 
 interface InventoryItem {
   id: string
@@ -24,6 +25,15 @@ interface Supplier {
   phone?: string
   email?: string
 }
+
+const units = ['kg', 'g', 'lít', 'ml', 'cái', 'hộp', 'gói', 'chai']
+
+const itemTypes = [
+  { label: 'Nhập kho', value: 'import' },
+  { label: 'Xuất kho', value: 'export' },
+  { label: 'Điều chỉnh', value: 'adjust' },
+  { label: 'Hàng hỏng', value: 'waste' },
+]
 
 export default function InventoryPage() {
   const { user } = useAuth()
@@ -223,10 +233,7 @@ export default function InventoryPage() {
                   <div className="grid grid-cols-2 gap-3">
                     <div>
                       <label className="text-sm font-medium text-gray-700">Đơn vị</label>
-                      <select value={itemForm.unit} onChange={e => setItemForm({ ...itemForm, unit: e.target.value })}
-                        className="w-full mt-1 border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
-                        {['kg', 'g', 'lít', 'ml', 'cái', 'hộp', 'gói', 'chai'].map(u => <option key={u}>{u}</option>)}
-                      </select>
+                      <SelectBox options={units} isSingleOption optionLabel='value' optionValue='label' onChange={val => setItemForm(p => ({ ...p, unit: val }))} value={itemForm.unit} />
                     </div>
                     <div>
                       <label className="text-sm font-medium text-gray-700">T.thiểu</label>
@@ -258,13 +265,7 @@ export default function InventoryPage() {
                 <form onSubmit={recordTransaction} className="space-y-4">
                   <div>
                     <label className="text-sm font-medium text-gray-700">Loại giao dịch</label>
-                    <select value={txForm.type} onChange={e => setTxForm({ ...txForm, type: e.target.value })}
-                      className="w-full mt-1 border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
-                      <option value="import">Nhập kho</option>
-                      <option value="export">Xuất kho</option>
-                      <option value="adjust">Điều chỉnh</option>
-                      <option value="waste">Hàng hỏng</option>
-                    </select>
+                    <SelectBox options={itemTypes} isSingleOption optionLabel='value' optionValue='label' onChange={val => setTxForm(p => ({ ...p, type: val }))} value={txForm.type} />
                   </div>
                   <div>
                     <label className="text-sm font-medium text-gray-700">Số lượng</label>

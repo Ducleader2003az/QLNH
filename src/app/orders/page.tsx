@@ -3,9 +3,15 @@
 import { useState } from 'react'
 import AuthLayout from '@/components/AuthLayout'
 import { useActiveOrders, useUpdateOrderStatus } from '@/hooks/useApi'
-import { ShoppingCart, Clock, CheckCircle, Filter } from 'lucide-react'
+import { ShoppingCart } from 'lucide-react'
 import api from '@/lib/api'
 import { useAuth } from '@/lib/auth'
+import { SelectBox } from '@/components/SelectBox'
+import { ConfirmModal } from '@/components/ConfirmModal'
+import { useToast } from '@/hooks/useToast'
+import InvoicePrintModal, { type InvoiceData } from '@/components/InvoicePrintModal'
+import { useRestaurant, useBranches } from '@/hooks/useApi'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 
 interface Order { id: string; tableNumber: number; status: string; subtotal: number; totalAmount: number; itemCount: number; createdAt: string }
 
@@ -18,12 +24,32 @@ const STATUS_MAP: Record<string, { label: string; className: string }> = {
   cancelled: { label: 'Đã hủy', className: 'badge-cancelled' },
 }
 
+const paymentMethods = [
+  { value: 'cash', label: '💵 Tiền mặt' },
+  { value: 'card', label: '💳 Thẻ' },
+  { value: 'transfer', label: '🔄 Chuyển khoản' },
+]
+
 export default function OrdersPage() {
   const { user } = useAuth()
   const branchId = user?.branchId || ''
+  const restaurantId = user?.restaurantId || ''
+  const queryClient = useQueryClient()
+  const toast = useToast()
 
   const { data: orders = [], isLoading } = useActiveOrders(branchId)
-  const updateStatus = useUpdateOrderStatus()
+  const { data: restaurant } = useRestaurant(restaurantId)
+  const { data: branchs = [] } = useBranches(restaurantId)
+  
+  const updateStatus = useMutation({
+    mutationFn: ({ id, status }: { id: string, status: string }) => api.patch(`/api/orders/${id}/status`, { status }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['active-orders'] })
+      toast.success('Cập nhật trạng thái đơn hàng thành công')
+    },
+    onError: () => toast.error('Cập nhật trạng thái đơn hàng thất bại')
+  })
+
   const [filterStatus, setFilterStatus] = useState('all')
   const [selectedOrder, setSelectedOrder] = useState<string | null>(null)
   const [orderDetail, setOrderDetail] = useState<Record<string, unknown> | null>(null)
@@ -31,7 +57,10 @@ export default function OrdersPage() {
   const [payMethod, setPayMethod] = useState('cash')
   const [discount, setDiscount] = useState('0')
   const [paying, setPaying] = useState(false)
-console.log(orders);
+
+  // Invoice state
+  const [invoiceData, setInvoiceData] = useState<InvoiceData | null>(null)
+  const [showInvoice, setShowInvoice] = useState(false)
 
   const filtered = filterStatus === 'all' ? orders : orders.filter((o: Order) => o.status === filterStatus)
 
@@ -40,6 +69,50 @@ console.log(orders);
     setSelectedOrder(orderId)
     const { data } = await api.get(`/api/orders/${orderId}`)
     setOrderDetail(data)
+  }
+
+  const handlePrintInvoice = async (orderId: string, e: React.MouseEvent) => {
+    e.stopPropagation()
+    try {
+      const { data: orderDetail } = await api.get(`/api/orders/${orderId}`)
+
+      const sub = orderDetail.subtotal ?? 0
+      const discountAmt = orderDetail.discountAmount ?? 0
+      const afterDiscount = sub - discountAmt
+      const taxAmt = orderDetail.taxAmount ?? Math.round(afterDiscount * 0.1)
+      const finalTotal = orderDetail.totalAmount ?? Math.max(0, afterDiscount + taxAmt)
+
+      const invoice: InvoiceData = {
+        orderId,
+        tableNumber: orderDetail.tableNumber,
+        items: (orderDetail.items || []).map((i: any) => ({
+          menuItemName: i.menuItemName,
+          quantity: i.quantity,
+          unitPrice: i.unitPrice,
+          subTotal: i.subTotal,
+          note: i.note,
+        })),
+        subtotal: sub,
+        discountAmount: discountAmt,
+        taxAmount: taxAmt,
+        totalAmount: finalTotal,
+        paymentMethod: 'Tiền mặt', // Default fallback or fetch from payment API
+        restaurantName: restaurant?.name,
+        restaurantAddress: restaurant?.address,
+        restaurantPhone: restaurant?.phone,
+        createdAt: orderDetail.createdAt,
+        bankId: restaurant?.bankId,
+        bankOwner: restaurant?.bankOwner,
+        bankNumber: restaurant?.bankNumber,
+        branchs: branchs || []
+      }
+
+      setInvoiceData(invoice)
+      setShowInvoice(true)
+    } catch (err) {
+      console.error(err)
+      toast.error("Không thể tải chi tiết hóa đơn")
+    }
   }
 
   const handlePayment = async () => {
@@ -51,6 +124,7 @@ console.log(orders);
         discount: parseFloat(discount),
         paymentMethod: payMethod,
       })
+
       setPaymentModal(null)
       setDiscount('0')
       updateStatus.mutate({ id: paymentModal, status: 'paid' })
@@ -143,6 +217,14 @@ console.log(orders);
                           Đã phục vụ
                         </button>
                       )}
+                      {order.status === 'paid' && (
+                        <button
+                          className="btn btn-secondary btn-sm"
+                          onClick={e => handlePrintInvoice(order.id, e)}
+                        >
+                          In hóa đơn
+                        </button>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -185,17 +267,11 @@ console.log(orders);
         {/* Payment Modal */}
         {paymentModal && (
           <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 }}>
-            <div className="card animate-fade-in" style={{ padding: 32, width: 400 }}>
+            <div className="card animate-fade-in" style={{ padding: 32, width: 420 }}>
               <h2 style={{ fontSize: 18, fontWeight: 700, marginBottom: 20 }}>Thanh toán đơn hàng</h2>
               <div style={{ marginBottom: 14 }}>
                 <label style={{ display: 'block', fontSize: 13, fontWeight: 600, marginBottom: 6 }}>Phương thức thanh toán</label>
-                <select className="input" value={payMethod} onChange={e => setPayMethod(e.target.value)}>
-                  <option value="cash">💵 Tiền mặt</option>
-                  <option value="card">💳 Thẻ</option>
-                  <option value="transfer">🔄 Chuyển khoản</option>
-                  <option value="momo">📱 MoMo</option>
-                  <option value="vnpay">💻 VNPay</option>
-                </select>
+                <SelectBox options={paymentMethods} optionLabel='label' optionValue='value' onChange={val => setPayMethod(val)} value={payMethod} />
               </div>
               <div style={{ marginBottom: 24 }}>
                 <label style={{ display: 'block', fontSize: 13, fontWeight: 600, marginBottom: 6 }}>Giảm giá (VNĐ)</label>
@@ -209,6 +285,14 @@ console.log(orders);
               </div>
             </div>
           </div>
+        )}
+
+        {/* Invoice Print Modal */}
+        {showInvoice && invoiceData && (
+          <InvoicePrintModal
+            data={invoiceData}
+            onClose={() => { setShowInvoice(false); setInvoiceData(null) }}
+          />
         )}
       </div>
     </AuthLayout>

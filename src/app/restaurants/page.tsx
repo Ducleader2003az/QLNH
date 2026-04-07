@@ -3,7 +3,8 @@
 import { useState, useEffect } from 'react'
 import AuthLayout from '@/components/AuthLayout'
 import api from '@/lib/api'
-import { Building2, Save, Globe, Phone, Mail, MapPin, FileText, Share2, CheckCircle, AlertCircle, CreditCard } from 'lucide-react'
+import React from 'react'
+import { Building2, Save, Globe, Phone, Mail, MapPin, FileText, Share2, CheckCircle, AlertCircle, CreditCard, UploadCloud } from 'lucide-react'
 import { useRestaurant } from '@/hooks/useApi'
 import { useAuth } from '@/lib/auth'
 
@@ -15,6 +16,8 @@ export default function RestaurantPage() {
   const [formData, setFormData] = useState<any>(null)
   const [saving, setSaving] = useState(false)
   const [toast, setToast] = useState<{ type: 'success' | 'error'; msg: string } | null>(null)
+  const [uploadingLogo, setUploadingLogo] = useState(false)
+  const logoInputRef = React.useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     if (restaurant) setFormData({ ...restaurant })
@@ -28,13 +31,39 @@ export default function RestaurantPage() {
   const handleSave = async () => {
     setSaving(true)
     try {
-      await api.put(`/api/restaurant/${restaurantId}`, formData)
+      await api.put(`/api/restaurants/${restaurantId}`, formData)
       refetch()
       showToast('success', 'Cập nhật thông tin thành công!')
     } catch {
       showToast('error', 'Lỗi khi cập nhật thông tin')
     } finally {
       setSaving(false)
+    }
+  }
+
+  const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    if (!file.type.startsWith('image/')) {
+      showToast('error', 'Vui lòng chọn file ảnh hợp lệ')
+      return
+    }
+
+    setUploadingLogo(true)
+    try {
+      const fd = new FormData()
+      fd.append('file', file)
+      const res = await api.post(`/api/restaurants/${restaurantId}/upload-logo`, fd, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      })
+      setFormData((prev: any) => ({ ...prev, logoUrl: res.data.logoUrl }))
+      showToast('success', 'Tải logo lên thành công! (Hãy bấm Lưu thay đổi)')
+    } catch {
+      showToast('error', 'Lỗi khi tải logo lên')
+    } finally {
+      setUploadingLogo(false)
+      if (logoInputRef.current) logoInputRef.current.value = ''
     }
   }
 
@@ -228,8 +257,8 @@ export default function RestaurantPage() {
                   <label className="block text-xs font-black text-gray-400 uppercase tracking-widest mb-2 px-1">Số tài khoản</label>
                   <input
                     type="text"
-                    value={formData.accountNo || ''}
-                    onChange={e => setFormData({...formData, accountNo: e.target.value})}
+                    value={formData.bankNumber || ''}
+                    onChange={e => setFormData({...formData, bankNumber: e.target.value})}
                     className="w-full bg-gray-50 border-0 rounded-2xl px-6 py-4 outline-none focus:ring-2 focus:ring-blue-600 transition-all font-medium"
                     placeholder="Nhập số tài khoản ngân hàng"
                   />
@@ -238,8 +267,8 @@ export default function RestaurantPage() {
                   <label className="block text-xs font-black text-gray-400 uppercase tracking-widest mb-2 px-1">Tên chủ tài khoản</label>
                   <input
                     type="text"
-                    value={formData.accountName || ''}
-                    onChange={e => setFormData({...formData, accountName: e.target.value})}
+                    value={formData.bankOwner || ''}
+                    onChange={e => setFormData({...formData, bankOwner: e.target.value})}
                     className="w-full bg-gray-50 border-0 rounded-2xl px-6 py-4 outline-none focus:ring-2 focus:ring-blue-600 transition-all font-medium uppercase"
                     placeholder="VD: NGUYEN VAN A"
                   />
@@ -253,7 +282,19 @@ export default function RestaurantPage() {
             {/* Logo */}
             <div className="bg-white rounded-[2.5rem] p-8 shadow-sm border border-gray-100 text-center">
               <label className="block text-xs font-black text-gray-400 uppercase tracking-widest mb-6">Logo nhà hàng</label>
-              <div className="w-44 h-44 bg-gray-50 rounded-[2rem] mx-auto mb-5 flex items-center justify-center border-4 border-dashed border-gray-200 overflow-hidden group relative cursor-pointer">
+              
+              <input
+                type="file"
+                ref={logoInputRef}
+                className="hidden"
+                accept="image/jpeg, image/png, image/webp, image/gif"
+                onChange={handleLogoUpload}
+              />
+
+              <div 
+                className={`w-44 h-44 bg-gray-50 rounded-[2rem] mx-auto mb-5 flex items-center justify-center border-4 border-dashed border-gray-200 overflow-hidden group relative cursor-pointer ${uploadingLogo ? 'opacity-50' : ''}`}
+                onClick={() => !uploadingLogo && logoInputRef.current?.click()}
+              >
                 {formData.logoUrl ? (
                   <img src={formData.logoUrl} alt="Logo" className="w-full h-full object-contain p-4 transition-transform group-hover:scale-110" />
                 ) : (
@@ -262,9 +303,19 @@ export default function RestaurantPage() {
                     <p className="text-xs text-gray-300 font-medium">Chưa có logo</p>
                   </div>
                 )}
-                <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                
+                {/* Hover overlay */}
+                <div className="absolute inset-0 bg-black/50 flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                  <UploadCloud className="text-white mb-2" size={24} />
                   <span className="text-white text-xs font-bold">Thay đổi ảnh</span>
                 </div>
+                
+                {/* Uploading loading overlay */}
+                {uploadingLogo && (
+                  <div className="absolute inset-0 bg-white/80 flex items-center justify-center">
+                    <div className="w-8 h-8 border-4 border-gray-200 border-t-blue-600 rounded-full animate-spin"></div>
+                  </div>
+                )}
               </div>
               <p className="text-xs text-gray-400 leading-relaxed">Khuyến nghị 512×512px, định dạng PNG hoặc JPG</p>
             </div>

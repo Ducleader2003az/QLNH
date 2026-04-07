@@ -16,8 +16,9 @@ import {
 } from 'lucide-react'
 import { VoucherDetailModal } from './components/VoucherDetailModal'
 import { CreatePromoteModal } from './components/CreatePromoteModal'
-
+import { ConfirmModal } from '@/components/ConfirmModal'
 import { useAuth } from '@/lib/auth'
+import { useToast } from '@/hooks/useToast'
 
 export default function PromotionsPage() {
   const { user } = useAuth()
@@ -29,6 +30,9 @@ export default function PromotionsPage() {
   const [showVouchersModal, setShowVouchersModal] = useState(false)
   const [selectedPromotion, setSelectedPromotion] = useState<Promotion | any>(null)
   const [vouchersList, setVouchersList] = useState<VoucherCode[]>([])
+  
+  const toast = useToast()
+  const [confirmDialog, setConfirmDialog] = useState<{isOpen: boolean, promoId: string | null}>({isOpen: false, promoId: null})
 
   // Edit state
   const [editPromotion, setEditPromotion] = useState<Promotion | null>(null)
@@ -56,19 +60,29 @@ export default function PromotionsPage() {
   const toggleStatus = async (promo: Promotion) => {
     try {
       await api.patch(`/api/promotions/${promo.id}/toggle`)
+      toast.success(promo.isActive ? 'Đã dừng khuyến mãi' : 'Đã kích hoạt khuyến mãi')
       loadPromotions()
     } catch (err) {
       console.error(err)
+      toast.error('Có lỗi xảy ra khi đổi trạng thái')
     }
   }
 
-  const handleDelete = async (id: string) => {
-    if (!confirm('Bạn có chắc chắn muốn xóa khuyến mãi này?')) return
+  const requestDelete = (id: string) => {
+    setConfirmDialog({ isOpen: true, promoId: id })
+  }
+
+  const handleDelete = async () => {
+    if (!confirmDialog.promoId) return
     try {
-      await api.delete(`/api/promotions/${id}`)
+      await api.delete(`/api/promotions/${confirmDialog.promoId}`)
+      toast.success('Đã xóa khuyến mãi thành công')
       loadPromotions()
     } catch (err) {
       console.error(err)
+      toast.error('Không thể xóa khuyến mãi')
+    } finally {
+      setConfirmDialog({ isOpen: false, promoId: null })
     }
   }
 
@@ -253,7 +267,7 @@ export default function PromotionsPage() {
                     </button>
                     <span className="text-gray-300">|</span>
                     <button
-                      onClick={() => handleDelete(promo.id)}
+                      onClick={() => requestDelete(promo.id)}
                       className="text-red-500 text-sm font-bold hover:underline"
                     >
                       Xóa
@@ -279,6 +293,15 @@ export default function PromotionsPage() {
           visible={showVouchersModal}
           selectedPromotion={selectedPromotion}
           vouchersList={vouchersList}
+        />
+
+        <ConfirmModal
+          isOpen={confirmDialog.isOpen}
+          title="Xác nhận xóa"
+          message="Bạn có chắc chắn muốn xóa khuyến mãi này không? Hành động này không thể hoàn tác."
+          type="danger"
+          onConfirm={handleDelete}
+          onCancel={() => setConfirmDialog({ isOpen: false, promoId: null })}
         />
       </div>
     </AuthLayout>

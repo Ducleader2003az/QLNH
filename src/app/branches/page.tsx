@@ -6,6 +6,8 @@ import { useBranches } from '@/hooks/useApi'
 import { GitBranch, Plus, MapPin, Phone, Edit3, CheckCircle2, XCircle } from 'lucide-react'
 import api from '@/lib/api'
 import { useAuth } from '@/lib/auth'
+import { useToast } from '@/hooks/useToast'
+import { ConfirmModal } from '@/components/ConfirmModal'
 
 export default function BranchesPage() {
   const { user } = useAuth()
@@ -16,36 +18,35 @@ export default function BranchesPage() {
   const [editingBranch, setEditingBranch] = useState<any>(null)
   const [formData, setFormData] = useState({ name: '', address: '', phone: '', isActive: true })
   const [saving, setSaving] = useState(false)
-  const [error, setError] = useState('')
-
+  const toast = useToast()
+  
   const openAddModal = () => {
     setEditingBranch(null)
     setFormData({ name: '', address: '', phone: '', isActive: true })
-    setError('')
     setShowModal(true)
   }
 
   const openEditModal = (branch: any) => {
     setEditingBranch(branch)
     setFormData({ name: branch.name, address: branch.address, phone: branch.phone, isActive: branch.isActive })
-    setError('')
     setShowModal(true)
   }
 
   const handleSave = async () => {
-    if (!formData.name.trim()) { setError('Vui lòng nhập tên chi nhánh'); return }
+    if (!formData.name.trim()) { toast.error('Vui lòng nhập tên chi nhánh'); return }
     setSaving(true)
-    setError('')
     try {
       if (editingBranch) {
         await api.put(`/api/branches/${editingBranch.id}`, { ...formData, restaurantId })
+        toast.success('Đã cập nhật chi nhánh')
       } else {
         await api.post('/api/branches', { ...formData, restaurantId })
+        toast.success('Đã thêm chi nhánh mới')
       }
       await refetch()
       setShowModal(false)
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Lỗi khi lưu chi nhánh')
+      toast.error(err.response?.data?.message || 'Lỗi khi lưu chi nhánh')
     } finally {
       setSaving(false)
     }
@@ -172,11 +173,6 @@ export default function BranchesPage() {
               </div>
 
               <div className="p-8 space-y-5">
-                {error && (
-                  <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl text-sm font-semibold flex items-center gap-2">
-                    <XCircle size={16} /> {error}
-                  </div>
-                )}
                 <div>
                   <label className="block text-xs font-black text-gray-400 uppercase tracking-widest mb-2">Tên chi nhánh *</label>
                   <input

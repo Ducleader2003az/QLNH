@@ -11,6 +11,8 @@ import {
 import { useAuth } from '@/lib/auth'
 import { useBranches } from '@/hooks/useApi'
 import { CheckboxMultiSelect } from '@/components/CheckboxMultiSelect'
+import { SelectBox } from '@/components/SelectBox'
+import { useToast } from '@/hooks/useToast'
 
 interface Props {
     setShowModal: (isShow: boolean) => void
@@ -33,11 +35,17 @@ const DEFAULT_FORM = {
     voucherCode: ''
 }
 
+const promoteTypes = [
+    { value: 'percentage', label: 'Phần trăm (%)' },
+    { value: 'fixed_amount', label: 'Số tiền cố định (đ)' },
+]
+
 export function CreatePromoteModal({ setShowModal, visible, editPromotion, onSuccess }: Props) {
     const { user } = useAuth()
     const restaurantId = user?.restaurantId || ''
 
     const isEditMode = !!editPromotion
+    const toast = useToast()
 
     const [form, setForm] = useState(DEFAULT_FORM)
     const [saving, setSaving] = useState(false)
@@ -177,10 +185,12 @@ export function CreatePromoteModal({ setShowModal, visible, editPromotion, onSuc
                 })
             }
 
+            toast.success(isEditMode ? 'Cập nhật khuyến mãi thành công' : 'Tạo khuyến mãi thành công')
             onSuccess?.()
             handleClose()
         } catch (err) {
             console.error(err)
+            toast.error('Có lỗi xảy ra khi lưu khuyến mãi')
         } finally {
             setSaving(false)
         }
@@ -254,14 +264,7 @@ export function CreatePromoteModal({ setShowModal, visible, editPromotion, onSuc
                         <div className="grid grid-cols-2 gap-4">
                             <div>
                                 <label className="block text-sm font-bold text-gray-700 mb-2">Loại giảm giá</label>
-                                <select
-                                    value={form.type}
-                                    onChange={e => setForm({ ...form, type: e.target.value as any })}
-                                    className="w-full bg-gray-50 border-0 rounded-2xl px-4 py-3.5 focus:ring-2 focus:ring-blue-600 outline-none transition-all appearance-none text-sm"
-                                >
-                                    <option value="percentage">Phần trăm (%)</option>
-                                    <option value="fixed_amount">Số tiền cố định (đ)</option>
-                                </select>
+                                <SelectBox options={promoteTypes} optionLabel='label' optionValue='value' onChange={val => setForm({ ...form, type: val })} value={form.type} />
                             </div>
                             <div>
                                 <label className="block text-sm font-bold text-gray-700 mb-2">Giá trị giảm *</label>
