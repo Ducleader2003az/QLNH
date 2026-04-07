@@ -3,6 +3,7 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react'
 import api from '@/lib/api'
 import { set } from 'zod'
+import { jwtDecode } from 'jwt-decode'
 
 // ⚡ DEV ONLY: Đặt thành null để bật tính năng đăng nhập thật
 const FAKE_USER: User | null = null
@@ -77,6 +78,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           branchId: parseJwt(data.token)?.branchId,
         }
         localStorage.setItem('user', JSON.stringify(userData))
+        console.log(userData);
+        
         setUser(userData)
       }
     } finally {
@@ -118,13 +121,12 @@ export function useAuth() {
 
 function parseJwt(token: string): Record<string, string> | null {
   try {
-    const base64 = token.split('.')[1]
-    const decoded = JSON.parse(atob(base64.replace(/-/g, '+').replace(/_/g, '/')))
-    // .NET JWT uses long claim names
+    const decoded = jwtDecode<Record<string, string>>(token)
+    
     return {
-      nameid: decoded['http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier'],
-      email: decoded['http://schemas.xmlsoap.org/ws/2005/05/identity/claims/emailaddress'],
-      role: decoded['http://schemas.microsoft.com/ws/2008/06/identity/claims/role'],
+      nameid: decoded['userId'],
+      email: decoded['email'],
+      role: decoded['role'],
       fullName: decoded['fullName'],
       restaurantId: decoded['restaurantId'] || '',
       branchId: decoded['branchId'] || '',

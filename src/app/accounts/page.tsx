@@ -9,6 +9,9 @@ import {
   User, CreditCard, Users, Eye, EyeOff, Building2,
   GitBranch, Search, X, Check, AlertTriangle
 } from 'lucide-react'
+import { SelectBox } from '@/components/SelectBox'
+import { useToast } from '@/hooks/useToast'
+import { ConfirmModal } from '@/components/ConfirmModal'
 
 const ROLE_CONFIG: Record<string, { label: string; color: string; bg: string; icon: any }> = {
   owner:     { label: 'Chủ sở hữu', color: 'text-purple-700', bg: 'bg-purple-100', icon: Shield },
@@ -39,6 +42,14 @@ const defaultForm = {
   username: '', email: '', password: '', fullName: '', role: 'waiter'
 }
 
+const accountTypes = [
+  { value: 'manager', label: 'Quản lý' },
+  { value: 'cashier', label: 'Thu ngân' },
+  { value: 'waiter', label: 'Phục vụ' },
+  { value: 'chef', label: 'Bếp trưởng' },
+  { value: 'bartender', label: 'Pha chế' },
+]
+
 export default function AccountsPage() {
   const { user } = useAuth()
   const restaurantId = user?.restaurantId || ''
@@ -51,10 +62,9 @@ export default function AccountsPage() {
   const [form, setForm] = useState({ ...defaultForm, branchId })
   const [showPass, setShowPass] = useState(false)
   const [saving, setSaving] = useState(false)
-  const [error, setError] = useState('')
-  const [success, setSuccess] = useState('')
   const [search, setSearch] = useState('')
   const [deleteTarget, setDeleteTarget] = useState<Account | null>(null)
+  const toast = useToast()
 
   const isOwner = user?.role === 'owner'
   const isManager = user?.role === 'manager' || isOwner
@@ -74,7 +84,7 @@ export default function AccountsPage() {
         setForm(p => ({ ...p, branchId: p.branchId || brRes.data[0]?.id || '' }))
       }
     } catch {
-      setError('Không thể tải dữ liệu tài khoản')
+      toast.error('Không thể tải dữ liệu tài khoản')
     } finally {
       setLoading(false)
     }
@@ -84,7 +94,6 @@ export default function AccountsPage() {
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault()
-    setError('')
     setSaving(true)
     try {
       await api.post('/api/auth/create-staff', {
@@ -92,13 +101,12 @@ export default function AccountsPage() {
         restaurantId,
         branchId: form.branchId || branchId
       })
-      setSuccess('Tạo tài khoản thành công!')
+      toast.success('Tạo tài khoản thành công!')
       setShowCreate(false)
       setForm({ ...defaultForm, branchId })
       fetchData()
-      setTimeout(() => setSuccess(''), 3000)
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Lỗi khi tạo tài khoản')
+      toast.error(err.response?.data?.message || 'Lỗi khi tạo tài khoản')
     } finally {
       setSaving(false)
     }
@@ -108,10 +116,11 @@ export default function AccountsPage() {
     if (!deleteTarget) return
     try {
       await api.delete(`/api/auth/users/${deleteTarget.id}`)
+      toast.success('Đã xóa tài khoản vĩnh viễn')
       setDeleteTarget(null)
       fetchData()
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Lỗi khi xóa tài khoản')
+      toast.error(err.response?.data?.message || 'Lỗi khi xóa tài khoản')
     }
   }
 
@@ -147,19 +156,6 @@ export default function AccountsPage() {
             </button>
           )}
         </div>
-
-        {/* Success / Error Toast */}
-        {success && (
-          <div className="bg-green-50 border border-green-200 text-green-700 px-5 py-3 rounded-2xl flex items-center gap-3 font-semibold animate-in slide-in-from-top-2">
-            <Check size={18} /> {success}
-          </div>
-        )}
-        {error && (
-          <div className="bg-red-50 border border-red-200 text-red-700 px-5 py-3 rounded-2xl flex items-center gap-3 font-semibold">
-            <AlertTriangle size={18} /> {error}
-            <button onClick={() => setError('')} className="ml-auto"><X size={16} /></button>
-          </div>
-        )}
 
         {/* Stats Row */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -283,16 +279,11 @@ export default function AccountsPage() {
                 <h2 className="text-2xl font-black text-gray-900">Tạo tài khoản mới</h2>
                 <p className="text-gray-500 text-sm mt-1">Nhân viên sẽ đăng nhập bằng tài khoản này</p>
               </div>
-              <button onClick={() => { setShowCreate(false); setError('') }} className="w-10 h-10 bg-gray-100 rounded-xl flex items-center justify-center hover:bg-gray-200 transition-colors">
+              <button type="button" onClick={() => setShowCreate(false)} className="w-10 h-10 bg-gray-100 rounded-xl flex items-center justify-center hover:bg-gray-200 transition-colors">
                 <X size={18} />
               </button>
             </div>
             <form onSubmit={handleCreate} className="p-8 space-y-5">
-              {error && (
-                <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl text-sm font-semibold">
-                  {error}
-                </div>
-              )}
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-black text-gray-400 uppercase tracking-widest mb-2">Họ và tên *</label>
@@ -340,33 +331,16 @@ export default function AccountsPage() {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-black text-gray-400 uppercase tracking-widest mb-2">Vai trò *</label>
-                  <select
-                    value={form.role}
-                    onChange={e => setForm(p => ({ ...p, role: e.target.value }))}
-                    className="w-full bg-gray-50 rounded-2xl px-4 py-3 outline-none focus:ring-2 focus:ring-indigo-500 font-medium text-sm border-0"
-                  >
-                    <option value="manager">Quản lý</option>
-                    <option value="cashier">Thu ngân</option>
-                    <option value="waiter">Phục vụ</option>
-                    <option value="chef">Bếp trưởng</option>
-                    <option value="bartender">Pha chế</option>
-                  </select>
+                  <SelectBox options={accountTypes} optionLabel='label' optionValue='value' onChange={val => setForm(p => ({ ...p, role: val }))} value={form.role}/>
                 </div>
                 <div>
                   <label className="block text-xs font-black text-gray-400 uppercase tracking-widest mb-2">Chi nhánh *</label>
-                  <select
-                    value={form.branchId}
-                    onChange={e => setForm(p => ({ ...p, branchId: e.target.value }))}
-                    className="w-full bg-gray-50 rounded-2xl px-4 py-3 outline-none focus:ring-2 focus:ring-indigo-500 font-medium text-sm border-0"
-                  >
-                    {branches.map(b => (
-                      <option key={b.id} value={b.id}>{b.name}</option>
-                    ))}
-                  </select>
-                </div>
+
+                  <SelectBox options={branches} optionLabel='name' optionValue='id' onChange={val => setForm(p => ({ ...p, branchId: val }))} value={form.branchId}/>
+                  </div>
               </div>
               <div className="flex gap-3 pt-2">
-                <button type="button" onClick={() => { setShowCreate(false); setError('') }}
+                <button type="button" onClick={() => setShowCreate(false)}
                   className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold py-3.5 rounded-2xl transition-colors"
                 >
                   Hủy
@@ -384,25 +358,15 @@ export default function AccountsPage() {
       )}
 
       {/* DELETE CONFIRM MODAL */}
-      {deleteTarget && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-          <div className="bg-white rounded-[2rem] w-full max-w-sm shadow-2xl p-8 text-center animate-in zoom-in-95">
-            <div className="w-16 h-16 bg-red-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
-              <Trash2 size={28} className="text-red-600" />
-            </div>
-            <h3 className="text-xl font-black text-gray-900 mb-2">Xóa tài khoản?</h3>
-            <p className="text-gray-500 mb-6">Tài khoản <strong>{deleteTarget.fullName}</strong> (@{deleteTarget.username}) sẽ bị xóa vĩnh viễn và không thể khôi phục.</p>
-            <div className="flex gap-3">
-              <button onClick={() => setDeleteTarget(null)} className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold py-3 rounded-2xl transition-colors">
-                Hủy
-              </button>
-              <button onClick={handleDelete} className="flex-1 bg-red-600 hover:bg-red-700 text-white font-bold py-3 rounded-2xl transition-colors">
-                Xóa tài khoản
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <ConfirmModal
+        isOpen={deleteTarget !== null}
+        title="Xóa tài khoản?"
+        message={`Tài khoản ${deleteTarget?.fullName || ''} (@${deleteTarget?.username || ''}) sẽ bị xóa vĩnh viễn và không thể khôi phục.`}
+        type="danger"
+        confirmText="Xóa tài khoản"
+        onConfirm={handleDelete}
+        onCancel={() => setDeleteTarget(null)}
+      />
     </AuthLayout>
   )
 }

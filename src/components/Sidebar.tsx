@@ -14,49 +14,39 @@ import {
   GitBranch,
   LogOut,
   CalendarDays,
-  Users,
-  UserRoundCheck,
-  Package,
   TicketPercent,
   History,
   KeyRound,
 } from 'lucide-react'
+import { ROLE_LABEL, ROLE_MAP } from '@/common/constant'
+import { useRestaurant } from '@/hooks/useApi'
 
 // Menu items với phân quyền: roles = [] nghĩa là tất cả đều thấy
 const navItems = [
-  { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, roles: [] },
-  { href: '/pos', label: 'POS - Bán hàng', icon: UtensilsCrossed, roles: [] },
-  { href: '/kitchen', label: 'Bếp (KDS)', icon: ChefHat, roles: [] },
-  { href: '/orders', label: 'Đơn hàng', icon: ShoppingCart, roles: [] },
-  { href: '/tables', label: 'Quản lý bàn', icon: BookOpen, roles: [] },
-  { href: '/reservations', label: 'Đặt bàn', icon: CalendarDays, roles: [] },
-  { href: '/menu', label: 'Thực đơn', icon: BookOpen, roles: ['owner'] },
-  { href: '/payments', label: 'Thanh toán', icon: CreditCard, roles: ['owner', 'manager', 'cashier'] },
-  { href: '/promotions', label: 'Khuyến mãi', icon: TicketPercent, roles: ['owner'] },
-  // { href: '/customers', label: 'Khách hàng', icon: Users, roles: ['owner', 'manager', 'cashier'] },
-  // { href: '/employees', label: 'Nhân viên', icon: UserRoundCheck, roles: ['owner', 'manager'] },
-  // { href: '/inventory', label: 'Kho hàng', icon: Package, roles: ['owner', 'manager'] },
+  { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, roles: [ROLE_MAP.owner,  ROLE_MAP.manager] },
+  { href: '/pos', label: 'POS - Bán hàng', icon: UtensilsCrossed, roles: [ROLE_MAP.cashier, ROLE_MAP.waiter] },
+  { href: '/kitchen', label: 'Bếp (KDS)', icon: ChefHat, roles: [ROLE_MAP.chef, ROLE_MAP.waiter, ROLE_MAP.bartender] },
+  { href: '/orders', label: 'Đơn hàng', icon: ShoppingCart, roles: [ROLE_MAP.owner, ROLE_MAP.manager, ROLE_MAP.cashier] },
+  { href: '/tables', label: 'Quản lý bàn', icon: BookOpen, roles: [ROLE_MAP.owner,  ROLE_MAP.manager] },
+  { href: '/reservations', label: 'Đặt bàn', icon: CalendarDays, roles: [ROLE_MAP.owner,  ROLE_MAP.manager, ROLE_MAP.cashier] },
+  { href: '/menu', label: 'Thực đơn', icon: BookOpen, roles: [ROLE_MAP.owner, ROLE_MAP.manager] },
+  { href: '/payments', label: 'Thanh toán', icon: CreditCard, roles: [ROLE_MAP.manager, ROLE_MAP.cashier, ROLE_MAP.waiter] },
+  { href: '/promotions', label: 'Khuyến mãi', icon: TicketPercent, roles: [ROLE_MAP.owner]  },
+  // { href: '/customers', label: 'Khách hàng', icon: Users, roles: [ROLE_MAP.owner,  ROLE_MAP.manager, ROLE_MAP.cashier] },
+  // { href: '/employees', label: 'Nhân viên', icon: UserRoundCheck, roles: [ROLE_MAP.owner,  ROLE_MAP.manager] },
+  // { href: '/inventory', label: 'Kho hàng', icon: Package, roles: [ROLE_MAP.owner,  ROLE_MAP.manager] },
 
-  // Owner only
-  { href: '/accounts', label: 'Tài khoản', icon: KeyRound, roles: ['owner', 'manager'] },
-  { href: '/restaurants', label: 'Nhà hàng', icon: Building2, roles: ['owner'] },
-  { href: '/branches', label: 'Chi nhánh', icon: GitBranch, roles: ['owner', 'manager'] },
-  { href: '/audit', label: 'Audit Log', icon: History, roles: ['owner'] },
+  { href: '/accounts', label: 'Tài khoản', icon: KeyRound, roles: [ROLE_MAP.owner,  ROLE_MAP.manager] },
+  { href: '/restaurants', label: 'Nhà hàng', icon: Building2, roles: [ROLE_MAP.owner] },
+  { href: '/branches', label: 'Chi nhánh', icon: GitBranch, roles: [ROLE_MAP.owner] },
+  { href: '/audit', label: 'Audit Log', icon: History, roles: [ROLE_MAP.owner, ROLE_MAP.manager]  },
 ]
-
-const ROLE_LABEL: Record<string, string> = {
-  owner: 'Chủ sở hữu',
-  Owner: 'Chủ sở hữu',
-  manager: 'Quản lý',
-  cashier: 'Thu ngân',
-  waiter: 'Phục vụ',
-  chef: 'Bếp trưởng',
-  bartender: 'Pha chế',
-}
 
 export default function Sidebar() {
   const pathname = usePathname()
   const { user, logout } = useAuth()
+
+  const {data: restaurant} = useRestaurant(user?.restaurantId as string)
 
   const visibleItems = navItems.filter(item => {
     if (item.roles.length === 0) return true;
@@ -82,7 +72,7 @@ export default function Sidebar() {
           textDecoration: 'none'
         }}>
           <img
-            src="/logo.png"
+            src={restaurant?.logoUrl || '/logo.png'}
             alt="Pfxsoft Logo"
             style={{
               width: '100%',

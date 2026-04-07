@@ -10,7 +10,8 @@ import {
   useAddOrderItem,
   useCustomers,
   usePromotions,
-  useRestaurant
+  useRestaurant,
+  useBranches
 } from '@/hooks/useApi'
 import {
   ShoppingCart,
@@ -26,11 +27,14 @@ import {
   UtensilsCrossed,
   Trash2,
   CheckCircle,
-  Info
+  Info,
+  Printer
 } from 'lucide-react'
 import api from '@/lib/api'
-
 import { useAuth } from '@/lib/auth'
+import InvoicePrintModal, { type InvoiceData } from '@/components/InvoicePrintModal'
+import { ConfirmModal } from '@/components/ConfirmModal'
+import { useToast } from '@/hooks/useToast'
 
 interface CartItem {
   id: string
@@ -73,6 +77,13 @@ export default function POSPage() {
   const [orderSuccess, setOrderSuccess] = useState(false)
   const [loading, setLoading] = useState(false)
   const [showPaymentModal, setShowPaymentModal] = useState(false)
+
+  // Invoice state
+  const [invoiceData, setInvoiceData] = useState<InvoiceData | null>(null)
+  const [showInvoice, setShowInvoice] = useState(false)
+  
+  const toast = useToast()
+  const [confirmDialog, setConfirmDialog] = useState<{isOpen: boolean, action: 'pay' | null}>({isOpen: false, action: null})
   
   const { data: tables = [], refetch: refetchTables } = useTables(branchId)
   const { data: categories = [] } = useMenuCategories(restaurantId)
@@ -80,6 +91,7 @@ export default function POSPage() {
   const { data: customers = [] } = useCustomers(restaurantId, customerSearch)
   const { data: allPromotions = [] } = usePromotions(restaurantId)
   const { data: restaurant } = useRestaurant(restaurantId)
+  const {data: branchs} = useBranches(restaurantId)
 
   const createOrder = useCreateOrder()
   const addOrderItem = useAddOrderItem()
@@ -222,12 +234,16 @@ export default function POSPage() {
 
   const applyVoucher = async () => {
     if (!voucherCode) return
+    setLoading(true)
     try {
-      const { data } = await api.get(`/api/promotions/vouchers/validate`, { params: { code: voucherCode, orderAmount: subtotal } })
-      setAppliedPromotion(data)
+      const { data: promo } = await api.get(`/api/promotions/vouchers/validate`, { params: { code: voucherCode, orderAmount: subtotal } })
+      toast.success('Áp dụng mã giảm giá thành công')
+      setAppliedPromotion(promo)
     } catch (err: any) {
-      alert(err.response?.data?.message || 'Mã không hợp lệ')
+      toast.error(err.response?.data?.message || 'Mã không hợp lệ')
       setAppliedPromotion(null)
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -252,6 +268,80 @@ export default function POSPage() {
     if (!restaurant?.bankId || !restaurant?.accountNo) return ''
     const memo = encodeURIComponent(`BAN ${selectedTable?.tableNumber || ''} ${new Date().getTime()}`)
     return `https://img.vietqr.io/image/${restaurant.bankId}-${restaurant.accountNo}-compact2.png?amount=${total}&addInfo=${memo}&accountName=${encodeURIComponent(restaurant.accountName || '')}`
+  }
+
+  const handleConfirmPayment = async () => {
+    if (!selectedTable) return
+    setConfirmDialog({ isOpen: true, action: 'pay' })
+  }
+
+  const executePayment = async () => {
+    if (!selectedTable) return
+    const orderId = selectedTable.currentOrderId
+    setLoading(true)
+    try {
+      await api.patch(`/api/tables/${selectedTable.id}/status`, { status: 'available' })
+      await api.post(`/api/orders/${orderId}/pay`, { paymentMethod: 'Tiền mặt' })
+
+      setShowPaymentModal(false)
+      setSelectedTable(null)
+      refetchTables()
+      setCart([])
+      setNewCart([])
+      setAppliedPromotion(null)
+      setVoucherCode('')
+      setSelectedCustomer(null)
+      toast.success('Thanh toán thành công')
+    } catch (err) {
+      toast.error('Có lỗi xảy ra khi thanh toán')
+    } finally {
+      setLoading(false)
+      setConfirmDialog({ isOpen: false, action: null })
+    }
+  }
+
+  const handlePrintInvoice = async () => {
+    if (!selectedTable || !selectedTable.currentOrderId) return
+    setLoading(true)
+    try {
+      const orderId = selectedTable.currentOrderId
+      const { data: orderForInvoice } = await api.get(`/api/orders/${orderId}`)
+
+      const invoice: InvoiceData = {
+        orderId,
+        tableNumber: selectedTable.tableNumber,
+        items: (orderForInvoice.items || cart).map((i: any) => ({
+          menuItemName: i.menuItemName || i.name,
+          quantity: i.quantity,
+          unitPrice: i.unitPrice || i.price,
+          subTotal: i.subTotal ?? (i.unitPrice || i.price) * i.quantity,
+          note: i.note,
+        })),
+        subtotal,
+        discountAmount: discount, // Use calculated discount
+        taxAmount: tax, // Use calculated tax
+        totalAmount: total, // Use actual current total in POS
+        paymentMethod: 'Tiền mặt', // Fallback, could be matched to true later
+        customerName: selectedCustomer?.fullName,
+        voucherCode: appliedPromotion?.code,
+        restaurantName: restaurant?.name,
+        restaurantAddress: restaurant?.address,
+        restaurantPhone: restaurant?.phone,
+        createdAt: orderForInvoice.createdAt,
+        bankId: restaurant?.bankId,
+        bankOwner: restaurant?.bankOwner,
+        bankNumber: restaurant?.bankNumber,
+        branchs: branchs || []
+      }
+
+      setInvoiceData(invoice)
+      setShowInvoice(true)
+    } catch(err) {
+      console.error(err)
+      toast.error("Không thể tải hóa đơn")
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
@@ -351,6 +441,10 @@ export default function POSPage() {
               </div>
               <div className="space-y-2">
                 <div className="flex justify-between text-[10px] text-gray-400 font-bold uppercase"><span>Tạm tính</span><span>{subtotal.toLocaleString()}đ</span></div>
+                {discount > 0 && (
+                  <div className="flex justify-between text-[10px] text-green-600 font-bold uppercase"><span>Giảm giá</span><span>-{Math.round(discount).toLocaleString()}đ</span></div>
+                )}
+                <div className="flex justify-between text-[10px] text-gray-400 font-bold uppercase"><span>Thuế VAT (10%)</span><span>{tax.toLocaleString()}đ</span></div>
                 <div className="flex justify-between items-end pt-2">
                   <span className="font-black text-lg text-gray-900">Tổng cộng</span>
                   <span className="font-black text-2xl text-blue-600">{total.toLocaleString()}đ</span>
@@ -360,15 +454,18 @@ export default function POSPage() {
                 <button disabled={!selectedTable || newCart.length === 0 || loading} onClick={handleSendToKitchen} className="bg-orange-600 disabled:opacity-50 text-white rounded-2xl py-4 flex flex-col items-center justify-center gap-1 shadow-lg shadow-orange-100">
                   <ChefHat size={20} /><span className="text-[10px] font-black uppercase tracking-widest">VÀO BẾP</span>
                 </button>
-                <button disabled={!selectedTable || loading || total <= 0} onClick={() => setShowPaymentModal(true)} className="bg-blue-600 disabled:opacity-50 text-white rounded-2xl py-4 flex flex-col items-center justify-center gap-1 shadow-lg shadow-blue-100">
-                  <CreditCard size={20} /><span className="text-[10px] font-black uppercase tracking-widest">THANH TOÁN</span>
-                </button>
+                <div className="grid grid-cols-1 gap-2">
+                  <button disabled={!selectedTable || loading || total <= 0} onClick={() => setShowPaymentModal(true)} className="bg-blue-600 disabled:opacity-50 text-white rounded-xl py-2 flex flex-col items-center justify-center gap-1 shadow-md shadow-blue-100">
+                    <CreditCard size={16} /><span className="text-[10px] font-black uppercase tracking-widest">THANH TOÁN</span>
+                  </button>
+                </div>
               </div>
             </div>
           </div>
         </div>
       </div>
 
+      {/* Payment Modal (VietQR) */}
       {showPaymentModal && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-md z-[200] flex items-center justify-center p-4">
           <div className="bg-white rounded-[2.5rem] w-full max-w-lg shadow-2xl overflow-hidden">
@@ -381,33 +478,30 @@ export default function POSPage() {
                 <div className="text-center py-10 bg-amber-50 rounded-3xl border border-amber-100 w-full"><Info className="mx-auto text-amber-500 mb-4" size={48} /><p className="text-amber-800 font-bold">Chưa cấu hình ngân hàng</p></div>
               ) : (
                 <>
-                  <div className="bg-gray-50 p-6 rounded-[2rem] border mb-6 flex justify-center w-full">
-                    <img src={getVietQRUrl()} className="w-full max-w-[280px] rounded-xl border-4 border-white shadow-lg" />
-                  </div>
                   <div className="w-full grid grid-cols-2 gap-4 mb-6">
                     <div className="bg-blue-50 p-4 rounded-2xl border border-blue-100"><p className="text-[10px] font-black text-blue-400 uppercase mb-1">Số tiền</p><p className="text-2xl font-black text-blue-700">{total.toLocaleString()}đ</p></div>
                     <div className="bg-gray-50 p-4 rounded-2xl border"><p className="text-[10px] font-black text-gray-400 uppercase mb-1">Bàn</p><p className="text-2xl font-black text-gray-700">{selectedTable?.tableNumber}</p></div>
                   </div>
                   <div className="w-full space-y-2 bg-gray-50 p-4 rounded-2xl text-xs font-medium">
                     <div className="flex justify-between"><span>Ngân hàng:</span><span className="font-bold">{restaurant.bankId}</span></div>
-                    <div className="flex justify-between"><span>STK:</span><span className="font-bold">{restaurant.accountNo}</span></div>
-                    <div className="flex justify-between"><span>Tên:</span><span className="font-bold uppercase">{restaurant.accountName}</span></div>
+                    <div className="flex justify-between"><span>STK:</span><span className="font-bold">{restaurant.bankNumber}</span></div>
+                    <div className="flex justify-between"><span>Tên:</span><span className="font-bold uppercase">{restaurant.bankOwner}</span></div>
                   </div>
                 </>
               )}
             </div>
             <div className="p-8 bg-gray-50 border-t flex gap-4">
               <button onClick={() => setShowPaymentModal(false)} className="flex-1 py-4 bg-gray-200 rounded-2xl font-black uppercase text-xs">Đóng</button>
-              <button 
-                onClick={async () => {
-                  if (confirm('Xác nhận khách đã thanh toán?')) {
-                    await api.patch(`/api/tables/${selectedTable.id}/status`, { status: 'available' })
-                    await api.post(`/api/orders/${selectedTable.currentOrderId}/pay`, { paymentMethod: 'Card' })
-                    setShowPaymentModal(false); setSelectedTable(null); refetchTables();
-                  }
-                }}
-                className="flex-[1.5] py-4 bg-blue-600 text-white rounded-2xl font-black uppercase text-xs shadow-xl shadow-blue-100"
-              >Xác nhận đã trả tiền</button>
+              <button disabled={!selectedTable || loading || cart.length === 0} onClick={handlePrintInvoice} className="flex-1 bg-gray-800 disabled:opacity-50 text-white rounded-xl py-2 flex flex-col items-center justify-center gap-1 shadow-md shadow-gray-200">
+                    <Printer size={16} /><span className="text-[10px] font-black uppercase tracking-widest">IN HÓA ĐƠN</span>
+                  </button>
+              <button
+                disabled={loading}
+                onClick={handleConfirmPayment}
+                className="flex-1 py-4 bg-blue-600 disabled:opacity-50 text-white rounded-2xl font-black uppercase text-xs shadow-xl shadow-blue-100 flex items-center justify-center gap-2"
+              >
+                {loading ? 'Đang xử lý...' : 'Xác nhận thanh toán'}
+              </button>
             </div>
           </div>
         </div>
@@ -418,6 +512,26 @@ export default function POSPage() {
           <CheckCircle className="text-white" /> Đã gửi món vào bếp!
         </div>
       )}
+
+      {/* Invoice Print Modal */}
+      {showInvoice && invoiceData && (
+        <InvoicePrintModal
+          onClose={() => { setShowInvoice(false); setInvoiceData(null) }}
+          data={invoiceData}
+        />
+      )}
+
+      <ConfirmModal
+        isOpen={confirmDialog.isOpen}
+        title="Xác nhận thanh toán"
+        message={`Xác nhận khách tại ${selectedTable?.tableNumber} đã thanh toán số tiền ${total.toLocaleString()}đ?`}
+        type="info"
+        confirmText="Đã thanh toán"
+        isLoading={loading}
+        onConfirm={executePayment}
+        onCancel={() => setConfirmDialog({ isOpen: false, action: null })}
+      />
+
       <style jsx global>{`
         .custom-scrollbar::-webkit-scrollbar { width: 4px; height: 4px; }
         .custom-scrollbar::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 10px; }

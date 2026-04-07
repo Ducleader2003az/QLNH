@@ -20,9 +20,11 @@ import {
   Info
 } from 'lucide-react'
 import api from '@/lib/api'
+import { useToast } from '@/hooks/useToast'
 
 export default function GuestOrderPage({ params }: { params: Promise<{ tableId: string }> }) {
   const { tableId } = use(params)
+  const toast = useToast()
 
   // Since we don't have the restaurantId easily from branchId in current hooks, 
   // we'll fetch branch details first if needed, but for now 
@@ -107,8 +109,9 @@ export default function GuestOrderPage({ params }: { params: Promise<{ tableId: 
       })
       setCart([])
       setOrdered(true)
+      toast.success('Đã gửi món vào bếp')
     } catch (err) {
-      alert('Lỗi khi đặt món. Vui lòng liên hệ nhân viên.')
+      toast.error('Lỗi khi đặt món. Vui lòng liên hệ nhân viên.')
     } finally {
       setLoading(false)
     }

@@ -7,7 +7,10 @@ import { Plus, Edit2, Trash2, BookOpen, Search, ToggleLeft, ToggleRight, ImagePl
 import api from '@/lib/api'
 import { useQueryClient } from '@tanstack/react-query'
 import { useAuth } from '@/lib/auth'
+import { useToast } from '@/hooks/useToast'
+import { ConfirmModal } from '@/components/ConfirmModal'
 import { CheckboxMultiSelect } from '@/components/CheckboxMultiSelect'
+import { SelectBox } from '@/components/SelectBox'
 
 interface MenuComboItem { id: string; name: string; price: number; imageUrl?: string; quantity: number }
 interface MenuItem { id: string; name: string; price: number; discountPrice?: number; discountType?: string; discountValue?: number; imageUrl?: string; unit: string; isAvailable: boolean; categoryId: string; categoryName: string; description: string; sortOrder: number; itemType: string; comboItems?: MenuComboItem[], branchIds?: string }
@@ -16,6 +19,7 @@ interface MenuCategory { id: string; name: string; sortOrder: number }
 export default function MenuPage() {
   const { user } = useAuth()
   const restaurantId = user?.restaurantId || ''
+  const toast = useToast()
 
   const { data: categories = [] } = useMenuCategories(restaurantId)
   const { data: items = [], isLoading } = useMenuItems(restaurantId)
@@ -25,9 +29,6 @@ export default function MenuPage() {
   const deleteItem = useDeleteMenuItem()
   const queryClient = useQueryClient()
 
-  console.log(branches);
-
-
   const [activeCategory, setActiveCategory] = useState<string>('all')
   const [search, setSearch] = useState('')
   const [showItemForm, setShowItemForm] = useState(false)
@@ -35,6 +36,7 @@ export default function MenuPage() {
   const [editItem, setEditItem] = useState<MenuItem | null>(null)
   const [catForm, setCatForm] = useState({ name: '', sortOrder: '0' })
   const [previewCombo, setPreviewCombo] = useState<MenuItem | null>(null)
+  const [confirmDialog, setConfirmDialog] = useState<{isOpen: boolean, itemId: string | null}>({isOpen: false, itemId: null})
   const [itemForm, setItemForm] = useState<{ name: string; price: string; description: string; unit: string; categoryId: string; sortOrder: string; imageUrl: string; itemType: string; comboItemIds: string[] }>({
     name: '', price: '', description: '', unit: 'phần', categoryId: '', sortOrder: '0', imageUrl: '', itemType: 'single', comboItemIds: []
   })
@@ -62,12 +64,13 @@ export default function MenuPage() {
       queryClient.invalidateQueries({ queryKey: ['menu-categories'] })
       setShowCatForm(false)
       setCatForm({ name: '', sortOrder: '0' })
+      toast.success('Đã lưu danh mục')
     } finally { setSaving(false) }
   }
 
   const handleImageChange = (file: File | null) => {
     if (!file) return
-    if (!file.type.startsWith('image/')) { alert('Vui lòng chọn file ảnh!'); return }
+    if (!file.type.startsWith('image/')) { toast.error('Vui lòng chọn file ảnh!'); return }
     setImageFile(file)
     const reader = new FileReader()
     reader.onload = e => setImagePreview(e.target?.result as string)
@@ -80,7 +83,6 @@ export default function MenuPage() {
     try {
       let finalImageUrl = itemForm.imageUrl
 
-      // Upload ảnh nếu người dùng có chọn file mới
       if (imageFile) {
         setUploadingImage(true)
         try {
@@ -114,6 +116,7 @@ export default function MenuPage() {
       setSelectedBranchIds([])
       setImageFile(null)
       setImagePreview('')
+      toast.success('Đã lưu món ăn')
     } finally { setSaving(false) }
   }
 
@@ -137,7 +140,6 @@ export default function MenuPage() {
   return (
     <AuthLayout>
       <div className="animate-fade-in">
-        {/* Header */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
           <div>
             <h1 style={{ fontSize: 22, fontWeight: 700, color: '#0f172a', display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -158,7 +160,6 @@ export default function MenuPage() {
           </div>
         </div>
 
-        {/* Category tabs */}
         <div style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap', alignItems: 'center' }}>
           <div style={{ position: 'relative', marginRight: 8 }}>
             <Search size={14} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
@@ -183,7 +184,6 @@ export default function MenuPage() {
           })}
         </div>
 
-        {/* Items Table */}
         <div className="card" style={{ overflow: 'hidden' }}>
           <div style={{ overflowX: 'auto' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
@@ -254,9 +254,7 @@ export default function MenuPage() {
                         <button className="btn btn-secondary btn-sm" onClick={() => handleEditItem(item)}>
                           <Edit2 size={13} />
                         </button>
-                        <button className="btn btn-danger btn-sm" onClick={() => {
-                          if (confirm('Xóa món này?')) deleteItem.mutate(item.id)
-                        }}>
+                        <button onClick={(e) => { e.stopPropagation(); setConfirmDialog({isOpen: true, itemId: item.id}) }} className="btn btn-danger btn-sm">
                           <Trash2 size={13} />
                         </button>
                       </div>
@@ -273,7 +271,6 @@ export default function MenuPage() {
           </div>
         </div>
 
-        {/* Category Form Modal */}
         {showCatForm && (
           <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 }}>
             <div className="card animate-fade-in" style={{ padding: 32, width: 360 }}>
@@ -296,7 +293,6 @@ export default function MenuPage() {
           </div>
         )}
 
-        {/* Item Form Modal */}
         {showItemForm && (
           <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, padding: 16 }}>
             <div
@@ -309,7 +305,6 @@ export default function MenuPage() {
                 transition: 'width 0.3s ease'
               }}
             >
-              {/* ── Header ── */}
               <div style={{ padding: '20px 28px', borderBottom: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
                 <div>
                   <h2 style={{ fontSize: 18, fontWeight: 700, color: '#0f172a', margin: 0 }}>{editItem ? 'Sửa món ăn' : 'Thêm món mới'}</h2>
@@ -326,10 +321,7 @@ export default function MenuPage() {
                 </button>
               </div>
 
-              {/* ── Body — horizontal split ── */}
               <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
-
-                {/* ═══ LEFT — Item form ═══ */}
                 <form
                   onSubmit={handleSaveItem}
                   style={{
@@ -355,7 +347,6 @@ export default function MenuPage() {
                     </div>
                   ))}
 
-                  {/* ── Upload ảnh ── */}
                   <div>
                     <label style={{ display: 'block', fontSize: 13, fontWeight: 600, marginBottom: 5, color: '#374151' }}>Ảnh món ăn</label>
                     <input ref={imageInputRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={e => handleImageChange(e.target.files?.[0] ?? null)} />
@@ -396,16 +387,11 @@ export default function MenuPage() {
                     )}
                   </div>
 
-                  {/* Danh mục */}
                   <div>
                     <label style={{ display: 'block', fontSize: 13, fontWeight: 600, marginBottom: 5, color: '#374151' }}>Danh mục *</label>
-                    <select className="input" required value={itemForm.categoryId} onChange={e => setItemForm(p => ({ ...p, categoryId: e.target.value }))}>
-                      <option value="">-- Chọn danh mục --</option>
-                      {categories.map((cat: MenuCategory) => (<option key={cat.id} value={cat.id}>{cat.name}</option>))}
-                    </select>
+                    <SelectBox options={categories} optionLabel='name' optionValue='id' onChange={val => setItemForm(p => ({ ...p, categoryId: val }))} value={itemForm.categoryId} />
                   </div>
 
-                  {/* Phân loại */}
                   <div>
                     <label style={{ display: 'block', fontSize: 13, fontWeight: 600, marginBottom: 5, color: '#374151' }}>Phân loại món *</label>
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
@@ -420,7 +406,6 @@ export default function MenuPage() {
                     </div>
                   </div>
 
-                  {/* Chi nhánh áp dụng */}
                   <div>
                     <label style={{ display: 'block', fontSize: 13, fontWeight: 600, marginBottom: 5, color: '#374151' }}>Chi nhánh áp dụng</label>
                     <CheckboxMultiSelect
@@ -440,7 +425,6 @@ export default function MenuPage() {
                   </div>
                 </form>
 
-                {/* RIGHT — Single items table (chỉ hiện khi combo) */}
                 {itemForm.itemType === 'combo' && ((): JSX.Element => {
                   const singleItems: MenuItem[] = items.filter((i: MenuItem) => i.itemType === 'single')
                   const filtered = singleItems.filter((i: MenuItem) => i.name.toLowerCase().includes(comboItemSearch.toLowerCase()))
@@ -520,7 +504,7 @@ export default function MenuPage() {
             </div>
           </div>
         )}
-        {/* Preview Modal */}
+
         {previewCombo && (
           <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 }} onClick={() => setPreviewCombo(null)}>
             <div className="card animate-fade-in" style={{ padding: 32, width: 400, maxWidth: '90vw' }} onClick={e => e.stopPropagation()}>
@@ -562,6 +546,15 @@ export default function MenuPage() {
             </div>
           </div>
         )}
+
+        <ConfirmModal
+          isOpen={confirmDialog.isOpen}
+          title="Xác nhận xóa món"
+          message="Bạn có chắc chắn muốn xóa món này không? Hành động này không thể hoàn tác."
+          type="danger"
+          onConfirm={() => { if (confirmDialog.itemId) { deleteItem.mutate(confirmDialog.itemId); setConfirmDialog({isOpen: false, itemId: null}) } }}
+          onCancel={() => setConfirmDialog({isOpen: false, itemId: null})}
+        />
       </div>
     </AuthLayout>
   )

@@ -7,6 +7,9 @@ import { Plus, Edit2, Trash2, RefreshCw, Grid3x3, QrCode } from 'lucide-react'
 import api from '@/lib/api'
 import { useQueryClient } from '@tanstack/react-query'
 import { useAuth } from '@/lib/auth'
+import { SelectBox } from '@/components/SelectBox'
+import { useToast } from '@/hooks/useToast'
+import { ConfirmModal } from '@/components/ConfirmModal'
 
 interface Table {
   id: string
@@ -25,19 +28,27 @@ const STATUS_LABELS: Record<string, string> = {
   cleaning: '🔵 Đang dọn',
 }
 
+const tableStatuses = [
+  { value: 'available', label: 'Trống' },
+  { value: 'occupied', label: 'Có khách' },
+  { value: 'reserved', label: 'Đặt trước' },
+  { value: 'cleaning', label: 'Đang dọn' },
+]
+
 export default function TablesPage() {
   const { user } = useAuth()
   const isOwner = user?.role?.toLowerCase() === 'owner'
   const restaurantId = user?.restaurantId || ''
+  const toast = useToast()
 
   // Owner có thể chọn chi nhánh, Manager lấy từ tài khoản
   const [selectedBranchId, setSelectedBranchId] = useState<string>(user?.branchId || '')
+  const [confirmDialog, setConfirmDialog] = useState<{isOpen: boolean, id: string | null}>({isOpen: false, id: null})
   const activeBranchId = isOwner ? selectedBranchId : (user?.branchId || '')
 
-  const { data: branches = [] } = useBranches(isOwner ? restaurantId : '')
+  const { data: branches = [], refetch: refetchBranches } = useBranches(isOwner ? restaurantId : '')
 
-
-  // T\u1ef1 đ\u1ed9ng ch\u1ecdn chi nh\u00e1nh đầu ti\u00ean cho Owner n\u1ebfu chưa ch\u1ecdn
+  // Tự động chọn chi nhánh đầu tiên cho Owner nếu chưa chọn
   useEffect(() => {
     if (isOwner && !selectedBranchId && branches.length > 0) {
       setSelectedBranchId(branches[0].id)
@@ -60,9 +71,9 @@ export default function TablesPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     const targetBranchId = isOwner ? form.branchId || selectedBranchId : (user?.branchId || '')
-    
-    if (!targetBranchId || targetBranchId === 'all') {
-      alert('Vui lòng chọn chi nhánh!')
+
+    if (!targetBranchId) {
+      toast.error('Vui lòng chọn chi nhánh!')
       return
     }
 
@@ -70,7 +81,7 @@ export default function TablesPage() {
     const cap = parseInt(form.capacity)
 
     if (isNaN(tableNo) || isNaN(cap)) {
-      alert('Số bàn và sức chứa phải là số hợp lệ!')
+      toast.error('Số bàn và sức chứa phải là số hợp lệ!')
       return
     }
 
@@ -82,6 +93,7 @@ export default function TablesPage() {
           capacity: cap,
           note: form.note
         })
+        toast.success('Đã cập nhật bàn thành công')
       } else {
         await api.post('/api/tables', {
           branchId: targetBranchId,
@@ -89,6 +101,7 @@ export default function TablesPage() {
           capacity: cap,
           note: form.note
         })
+        toast.success('Đã tạo bàn thành công')
       }
       queryClient.invalidateQueries({ queryKey: ['tables'] })
       setShowForm(false)
@@ -97,7 +110,7 @@ export default function TablesPage() {
     } catch (err: any) {
       console.error(err)
       const msg = err.response?.data?.message || 'Có lỗi xảy ra khi lưu thông tin bàn'
-      alert(msg)
+      toast.error(msg)
     }
     setLoading(false)
   }
@@ -108,10 +121,18 @@ export default function TablesPage() {
     setShowForm(true)
   }
 
-  const handleDelete = async (id: string) => {
-    if (!confirm('Bạn chắc chắn muốn xóa bàn này?')) return
-    await api.delete(`/api/tables/${id}`)
-    queryClient.invalidateQueries({ queryKey: ['tables'] })
+  const deleteTable = async () => {
+    if (!confirmDialog.id) return
+    try {
+      await api.delete(`/api/tables/${confirmDialog.id}`)
+      toast.success('Đã xoá bàn thành công')
+      queryClient.invalidateQueries({ queryKey: ['tables'] })
+    } catch (err) {
+      console.error(err)
+      toast.error('Có lỗi xảy ra khi xóa bàn')
+    } finally {
+      setConfirmDialog({isOpen: false, id: null})
+    }
   }
 
   const cardBg = (status: string) => ({
@@ -123,8 +144,6 @@ export default function TablesPage() {
 
   const getQRUrl = (table: Table) => {
     if (typeof window === 'undefined') return ''
-    console.log(`${window.location.origin}/order/${table.id}`);
-    
     return `${window.location.origin}/order/${table.id}`
   }
 
@@ -143,23 +162,13 @@ export default function TablesPage() {
           <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
             {/* Owner: chọn chi nhánh để xem bàn */}
             {isOwner && (
-              <select
-                className="input"
-                style={{ width: 200, height: 36, fontSize: 13 }}
-                value={selectedBranchId}
-                onChange={e => setSelectedBranchId(e.target.value)}
-              >
-                <option value="">-- Chọn chi nhánh --</option>
-                {(branches as Array<{id: string; name: string}>).map((b) => (
-                  <option key={b.id} value={b.id}>{b.name}</option>
-                ))}
-              </select>
+              <SelectBox options={branches} onChange={id => setSelectedBranchId(id)} value={selectedBranchId} optionLabel='name' optionValue='id' />
             )}
-            <button className="btn btn-secondary" onClick={() => refetch()}>
+            <button className="btn btn-secondary flex-shrink-0" onClick={() => refetch()}>
               <RefreshCw size={15} />
               Làm mới
             </button>
-            <button className="btn btn-primary" onClick={() => { setShowForm(true); setEditTable(null); setForm({ tableNumber: '', capacity: '4', note: '', branchId: '' }) }} id="add-table-btn">
+            <button className="btn btn-primary flex-shrink-0" onClick={() => { setShowForm(true); setEditTable(null); setForm({ tableNumber: '', capacity: '4', note: '', branchId: '' }) }} id="add-table-btn">
               <Plus size={15} />
               Thêm bàn
             </button>
@@ -207,7 +216,7 @@ export default function TablesPage() {
                       <button className="btn btn-ghost btn-sm" onClick={() => handleEdit(table)} style={{ padding: 4 }}>
                         <Edit2 size={13} color="#64748b" />
                       </button>
-                      <button className="btn btn-ghost btn-sm" onClick={() => handleDelete(table.id)} style={{ padding: 4 }}>
+                      <button className="btn btn-ghost btn-sm" onClick={() => setConfirmDialog({isOpen: true, id: table.id})} style={{ padding: 4 }}>
                         <Trash2 size={13} color="#dc2626" />
                       </button>
                     </div>
@@ -232,17 +241,7 @@ export default function TablesPage() {
                   )}
 
                   {/* Quick status change */}
-                  <select
-                    className="input"
-                    style={{ fontSize: 12, padding: '4px 8px' }}
-                    value={table.status}
-                    onChange={e => updateStatus.mutate({ id: table.id, status: e.target.value })}
-                  >
-                    <option value="available">Trống</option>
-                    <option value="occupied">Có khách</option>
-                    <option value="reserved">Đặt trước</option>
-                    <option value="cleaning">Đang dọn</option>
-                  </select>
+                  <SelectBox options={tableStatuses} onChange={val => updateStatus.mutate({ id: table.id, status: val })} value={table.status} optionLabel='label' optionValue='value' />
                 </div>
               </div>
             )
@@ -271,17 +270,7 @@ export default function TablesPage() {
                 {isOwner && !editTable && (
                   <div style={{ marginBottom: 14 }}>
                     <label style={{ display: 'block', fontSize: 13, fontWeight: 600, marginBottom: 6 }}>Chi nhánh *</label>
-                    <select
-                      className="input"
-                      required
-                      value={form.branchId}
-                      onChange={e => setForm(p => ({ ...p, branchId: e.target.value }))}
-                    >
-                      <option value="">-- Chọn chi nhánh --</option>
-                      {(branches as Array<{id: string; name: string}>).map((b) => (
-                        <option key={b.id} value={b.id}>{b.name}</option>
-                      ))}
-                    </select>
+                    <SelectBox options={branches} onChange={val => setForm(p => ({ ...p, branchId: val }))} value={form.branchId} optionLabel='name' optionValue='id' />
                   </div>
                 )}
                 <div style={{ marginBottom: 14 }}>
@@ -325,9 +314,9 @@ export default function TablesPage() {
                   <X size={20} />
                 </button>
               </div>
-              
+
               <div style={{ background: '#f8fafc', padding: 24, borderRadius: 16, marginBottom: 20 }}>
-                <img 
+                <img
                   src={`https://api.qrserver.com/v1/create-qr-code/?data=${encodeURIComponent(getQRUrl(qrModal))}&size=250x250&bgcolor=ffffff`}
                   alt="QR Code"
                   style={{ width: '100%', height: 'auto', borderRadius: 8, border: '4px solid white' }}
@@ -336,7 +325,7 @@ export default function TablesPage() {
 
               <p style={{ fontWeight: 700, fontSize: 16, marginBottom: 4 }}>Bàn số {qrModal.tableNumber}</p>
               <p style={{ fontSize: 12, color: '#64748b', marginBottom: 20 }}>Khách hàng có thể quét mã này để đặt món</p>
-              
+
               <div style={{ display: 'flex', gap: 10 }}>
                 <button className="btn btn-secondary" style={{ flex: 1 }} onClick={() => window.print()}>
                   In mã QR
@@ -348,6 +337,15 @@ export default function TablesPage() {
             </div>
           </div>
         )}
+
+        <ConfirmModal
+          isOpen={confirmDialog.isOpen}
+          title="Xác nhận xóa bàn"
+          message="Bạn có chắc chắn muốn xóa bàn này không? Hành động này không thể hoàn tác."
+          type="danger"
+          onConfirm={deleteTable}
+          onCancel={() => setConfirmDialog({isOpen: false, id: null})}
+        />
       </div>
     </AuthLayout>
   )
