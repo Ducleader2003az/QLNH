@@ -89,7 +89,6 @@ export default function POSPage() {
   const { data: tables = [], refetch: refetchTables } = useTables(branchId)
   const { data: categories = [] } = useMenuCategories(restaurantId)
   const { data: allItems = [] } = useMenuItems(restaurantId)
-  const { data: customers = [] } = useCustomers(restaurantId, customerSearch)
   const { data: allPromotions = [] } = usePromotions(restaurantId)
   const { data: restaurant } = useRestaurant(restaurantId)
   const { data: branchs } = useBranches(restaurantId)
@@ -257,7 +256,7 @@ export default function POSPage() {
           await addOrderItem.mutateAsync({ orderId: selectedTable.currentOrderId, menuItemId: item.id, quantity: item.quantity, note: item.note })
         }
       } else {
-        await createOrder.mutateAsync({ tableId: selectedTable.id, customerId: selectedCustomer?.id, guestCount: 1, note: orderNote, voucherCode: appliedPromotion?.code, items: newCart.map(item => ({ menuItemId: item.id, quantity: item.quantity, note: item.note })) })
+        await createOrder.mutateAsync({ tableId: selectedTable.id, customerId: selectedCustomer?.id, restaurantId: restaurant?.id, guestCount: 1, note: orderNote, voucherCode: appliedPromotion?.code, items: newCart.map(item => ({ menuItemId: item.id, quantity: item.quantity, note: item.note })) })
       }
       setNewCart([]); setSelectedCustomer(null); setAppliedPromotion(null); setVoucherCode(''); setOrderSuccess(true);
       refetchTables()
@@ -533,9 +532,9 @@ export default function POSPage() {
                 <p className="text-[11px] font-black text-gray-400 uppercase tracking-widest mb-3">Phương thức thanh toán</p>
                 <div className="grid grid-cols-3 gap-2">
                   {[
-                    { value: 'cash', label: '💵 Tiền mặt' },
-                    { value: 'card', label: '💳 Thẻ' },
-                    { value: 'transfer', label: '🔄 Chuyển khoản' },
+                    { value: 'cash', label: 'Tiền mặt', icon: '💵' },
+                    { value: 'card', label: ' Thẻ', icon: '💳' },
+                    { value: 'transfer', label: 'Chuyển khoản', icon: '🔄' },
                   ].map(m => (
                     <button
                       key={m.value}

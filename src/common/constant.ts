@@ -15,3 +15,9 @@ export const ROLE_MAP: Record<string, string> = {
     chef: 'chef',
     bartender: 'bartender',
 }
+
+export const PAYMENT_METHOD_LABEL: Record<string, string> = {
+    cash: 'Tiền mặt',
+    card: 'Thẻ tín dụng',
+    transfer: 'Chuyển khoản',
+}

@@ -6,10 +6,11 @@ import { useAuth } from '@/lib/auth'
 import { 
   useActiveOrders, 
   useTables, 
-  useRecentPayments, 
   useReservations,
   useInventoryItems,
-  usePromotions
+  usePromotions,
+  useRecentPaymentsInBranch,
+  useRecentPaymentsInRestaurant
 } from '@/hooks/useApi'
 import {
   ShoppingCart, 
@@ -29,41 +30,11 @@ import {
 import Link from 'next/link'
 
 
-interface Order {
-  id: string
-  tableNumber: number
-  status: string
-  totalAmount: number
-  itemCount: number
-  createdAt: string
-}
-
-interface Table {
-  id: string
-  tableNumber: number
-  status: string
-  capacity: number
-}
-
-interface Payment {
-  id: string
-  amount: number
-}
-
-interface Reservation {
-  id: string
-  status: string
-}
-
-interface InventoryItem {
-  id: string
-  isLowStock: boolean
-}
-
 export default function DashboardPage() {
   const { user } = useAuth()
   const branchId = user?.branchId || ''
   const restaurantId = user?.restaurantId || ''
+  const isOwner = user?.role === 'owner'
 
   const [mounted, setMounted] = useState(false)
   const [currentDateStr, setCurrentDateStr] = useState('')
@@ -81,13 +52,17 @@ export default function DashboardPage() {
 
   const { data: activeOrders = [] } = useActiveOrders(branchId)
   const { data: tables = [] } = useTables(branchId)
-  const { data: payments = [] } = useRecentPayments(branchId)
+  const { data: paymentsInBranch = [] } = useRecentPaymentsInBranch(branchId, {
+      enabled: !isOwner && branchId != '' // If user is owner, disable branch-level payments query to avoid confusion with restaurant-level payments
+  })
+  const { data: paymentsInRestaurant = [] } = useRecentPaymentsInRestaurant(restaurantId, {
+      enabled: isOwner && restaurantId != '' // Only enable restaurant-level payments query for owners
+  })
   const { data: reservations = [] } = useReservations(branchId, today)
   const { data: inventoryItems = [] } = useInventoryItems(branchId)
   const { data: promotions = [] } = usePromotions(restaurantId)
 
-  console.log(payments);
-  
+  const payments = isOwner ? paymentsInRestaurant as Payment[] : paymentsInBranch as Payment[]
 
   const occupiedTables = tables.filter((t: Table) => t.status === 'occupied').length
   const todayRevenue = payments.reduce((sum: number, p: Payment) => sum + p.amount, 0)

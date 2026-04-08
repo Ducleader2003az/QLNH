@@ -131,15 +131,25 @@ export function useDeleteMenuItem() {
 }
 
 // ===== ORDERS =====
-export function useAllOrders(branchId: string) {
+export function useOrdersByBranch(branchId: string, config?: any) {
   return useQuery({
     queryKey: [branchId],
     queryFn: async () => {
       const { data } = await api.get(`/api/orders/branch/${branchId}`)
       return data
     },
-    enabled: !!branchId,
-    refetchInterval: 15000,
+    ...config
+  })
+}
+
+export function useOrdersByRestaurant(restaurantId: string, config?: any) {
+  return useQuery({
+    queryKey: [restaurantId],
+    queryFn: async () => {
+      const { data } = await api.get(`/api/orders/restaurant/${restaurantId}`)
+      return data
+    },
+    ...config
   })
 }
 
@@ -254,16 +264,29 @@ export function useProcessPayment() {
   })
 }
 
-export function useRecentPayments(branchId: string) {
+export function useRecentPaymentsInBranch(branchId: string, config?: any) {
   return useQuery({
-    queryKey: ['payments', 'recent', branchId],
+    queryKey: ['payment', 'recent', 'branch', branchId],
     queryFn: async () => {
       // Backend does not have a /recent/branch/id endpoint in PaymentController yet.
       // We will follow the backend singular route pattern.
       const { data } = await api.get(`/api/payment/recent/branch/${branchId}`)
       return data
     },
-    enabled: !!branchId
+    ...config,
+  })
+}
+
+export function useRecentPaymentsInRestaurant(restaurantId: string, config?: any) {
+  return useQuery({
+    queryKey: ['payment', 'recent', 'restaurant', restaurantId],
+    queryFn: async () => {
+      // Backend does not have a /recent/branch/id endpoint in PaymentController yet.
+      // We will follow the backend singular route pattern.
+      const { data } = await api.get(`/api/payment/recent/restaurant/${restaurantId}`)
+      return data
+    },
+    ...config,
   })
 }
 
@@ -346,7 +369,7 @@ export function usePromotions(restaurantId: string) {
       const { data } = await api.get(`/api/promotions/restaurant/${restaurantId}`)
       return data
     },
-    enabled: true,
+    enabled: !!restaurantId,
     refetchOnMount: true,
   })
 }

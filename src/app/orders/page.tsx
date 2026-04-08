@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import AuthLayout from '@/components/AuthLayout'
-import { useActiveOrders, useAllOrders, useUpdateOrderStatus } from '@/hooks/useApi'
+import { useActiveOrders, useOrdersByBranch, useOrdersByRestaurant, useUpdateOrderStatus } from '@/hooks/useApi'
 import { ShoppingCart } from 'lucide-react'
 import api from '@/lib/api'
 import { useAuth } from '@/lib/auth'
@@ -36,10 +36,20 @@ export default function OrdersPage() {
   const restaurantId = user?.restaurantId || ''
   const queryClient = useQueryClient()
   const toast = useToast()
+  const isOwner = user?.role === 'owner'
 
-  const { data: orders = [], isLoading } = useAllOrders(branchId)
   const { data: restaurant } = useRestaurant(restaurantId)
   const { data: branchs = [] } = useBranches(restaurantId)
+  const { data: ordersByBranch = [], isLoading } = useOrdersByBranch(branchId, {
+    enabled: !isOwner,
+    refetchInterval: 15000,
+  })
+  const { data: ordersByRestaurant = [] } = useOrdersByRestaurant(restaurantId, {
+    enabled: isOwner,
+    refetchInterval: 15000,
+  })
+
+  const orders = isOwner ? ordersByRestaurant as Order[] : ordersByBranch as Order[]
 
   const updateStatus = useMutation({
     mutationFn: ({ id, status }: { id: string, status: string }) => api.patch(`/api/orders/${id}/status`, { status }),
@@ -68,8 +78,6 @@ export default function OrdersPage() {
     if (selectedOrder === orderId) { setSelectedOrder(null); setOrderDetail(null); return }
     setSelectedOrder(orderId)
     const { data } = await api.get(`/api/orders/${orderId}`)
-    console.log(data);
-    
     setOrderDetail(data)
   }
 
