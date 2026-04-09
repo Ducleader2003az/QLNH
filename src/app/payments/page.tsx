@@ -1,4 +1,5 @@
 'use client'
+import { useState } from 'react'
 
 import AuthLayout from '@/components/AuthLayout'
 import { useAuth } from '@/lib/auth'
@@ -7,18 +8,46 @@ import { useRecentPaymentsInBranch, useRecentPaymentsInRestaurant } from '@/hook
 import { PAYMENT_METHOD_LABEL } from '@/common/constant'
 
 export default function PaymentsPage() {
+  const [filter, setFilter] = useState<'today' | 'week' | 'month'>('today')
   const { user } = useAuth()
   const branchId = user?.branchId || ''
   const restaurantId = user?.restaurantId || ''
   const isOwner = user?.role === 'owner'
 
   const { data: paymentsInBranch = [] } = useRecentPaymentsInBranch(branchId, {
-    enabled: !isOwner && branchId != '' // If user is owner, disable branch-level payments query to avoid confusion with restaurant-level payments
+    enabled: !isOwner && branchId != ''
   })
   const { data: paymentsInRestaurant = [] } = useRecentPaymentsInRestaurant(restaurantId, {
-    enabled: isOwner && restaurantId != '' // Only enable restaurant-level payments query for owners
+    enabled: isOwner && restaurantId != ''
   })
-  const payments = isOwner ? paymentsInRestaurant as Payment[] : paymentsInBranch as Payment[]
+  const allPayments = (isOwner ? paymentsInRestaurant : paymentsInBranch) as any[]
+
+  const filteredPayments = allPayments.filter(p => {
+    const pDate = new Date(p.createdAt)
+    const now = new Date()
+
+    if (filter === 'today') {
+      return pDate.toDateString() === now.toDateString()
+    }
+
+    if (filter === 'week') {
+      const startOfWeek = new Date(now)
+      const day = now.getDay()
+      const diff = now.getDate() - day + (day === 0 ? -6 : 1)
+      startOfWeek.setDate(diff)
+      startOfWeek.setHours(0, 0, 0, 0)
+      return pDate >= startOfWeek
+    }
+
+    if (filter === 'month') {
+      return pDate.getMonth() === now.getMonth() && pDate.getFullYear() === now.getFullYear()
+    }
+
+    return true
+  })
+
+  // Use filtered payments for calculations
+  const payments = filteredPayments
 
 
   const getMethodIcon = (method: string) => {
@@ -54,15 +83,32 @@ export default function PaymentsPage() {
           </div>
 
           <div className="flex bg-white p-2 rounded-2xl border border-gray-100 shadow-sm">
-            <button className="px-6 py-2 bg-emerald-100 text-emerald-700 rounded-xl font-bold text-sm transition-all hover:bg-emerald-200">Hôm nay</button>
-            <button className="px-6 py-2 bg-white text-gray-400 rounded-xl font-bold text-sm hover:text-gray-900 transition-all">Tuần này</button>
-            <button className="px-6 py-2 bg-white text-gray-400 rounded-xl font-bold text-sm hover:text-gray-900 transition-all">Tháng này</button>
+            <button
+              onClick={() => setFilter('today')}
+              className={`px-6 py-2 rounded-xl font-bold text-sm transition-all ${filter === 'today' ? 'bg-emerald-100 text-emerald-700' : 'bg-white text-gray-400 hover:text-gray-900'}`}
+            >
+              Hôm nay
+            </button>
+            <button
+              onClick={() => setFilter('week')}
+              className={`px-6 py-2 rounded-xl font-bold text-sm transition-all ${filter === 'week' ? 'bg-emerald-100 text-emerald-700' : 'bg-white text-gray-400 hover:text-gray-900'}`}
+            >
+              Tuần này
+            </button>
+            <button
+              onClick={() => setFilter('month')}
+              className={`px-6 py-2 rounded-xl font-bold text-sm transition-all ${filter === 'month' ? 'bg-emerald-100 text-emerald-700' : 'bg-white text-gray-400 hover:text-gray-900'}`}
+            >
+              Tháng này
+            </button>
           </div>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-12">
           <div className="bg-white rounded-[2.5rem] p-8 shadow-sm border border-gray-100">
-            <p className="text-sm font-bold text-gray-400 uppercase tracking-widest mb-2">Tổng doanh thu (Hôm nay)</p>
+            <p className="text-sm font-bold text-gray-400 uppercase tracking-widest mb-2">
+              Tổng doanh thu ({filter === 'today' ? 'Hôm nay' : filter === 'week' ? 'Tuần này' : 'Tháng này'})
+            </p>
             <h3 className="text-4xl font-black text-gray-900">{payments.reduce((sum, p) => sum + p.amount, 0).toLocaleString('vi-VN')} <span className="text-lg font-bold text-gray-400">VNĐ</span></h3>
             <p className="text-green-500 text-sm font-bold flex items-center gap-1 mt-2">
               <CheckCircle2 size={14} /> +12% so với hôm qua

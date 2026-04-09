@@ -146,7 +146,9 @@ export default function TablesPage() {
 
   const getQRUrl = (table: Table) => {
     if (typeof window === 'undefined') return ''
+    console.log(`${window.location.origin}/order/${table.id}`);
     return `${window.location.origin}/order/${table.id}`
+    
   }
 
   return (
