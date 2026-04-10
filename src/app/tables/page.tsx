@@ -43,7 +43,7 @@ export default function TablesPage() {
 
   // Owner có thể chọn chi nhánh, Manager lấy từ tài khoản
   const [selectedBranchId, setSelectedBranchId] = useState<string>(user?.branchId || '')
-  const [confirmDialog, setConfirmDialog] = useState<{isOpen: boolean, id: string | null}>({isOpen: false, id: null})
+  const [confirmDialog, setConfirmDialog] = useState<{ isOpen: boolean, id: string | null }>({ isOpen: false, id: null })
   const activeBranchId = isOwner ? selectedBranchId : (user?.branchId || '')
 
   const { data: branches = [], refetch: refetchBranches } = useBranches(isOwner ? restaurantId : '')
@@ -51,7 +51,7 @@ export default function TablesPage() {
   // Nếu là owner và chưa có chi nhánh nào được chọn, tự động chọn chi nhánh đầu tiên
   useEffect(() => {
     if (isOwner && !selectedBranchId && branches.length > 0) {
-      startTransition(() =>{
+      startTransition(() => {
         setSelectedBranchId(prev => prev || branches[0].id)
       })
     }
@@ -90,7 +90,7 @@ export default function TablesPage() {
     setLoading(true)
     try {
       if (editTable) {
-        await api.put(`/api/tables/${editTable.id}`, {
+        await api.put(`/ api / tables / ${editTable.id} `, {
           tableNumber: tableNo,
           capacity: cap,
           note: form.note
@@ -126,14 +126,14 @@ export default function TablesPage() {
   const deleteTable = async () => {
     if (!confirmDialog.id) return
     try {
-      await api.delete(`/api/tables/${confirmDialog.id}`)
+      await api.delete(`/ api / tables / ${confirmDialog.id} `)
       toast.success('Đã xoá bàn thành công')
       queryClient.invalidateQueries({ queryKey: ['tables'] })
     } catch (err) {
       console.error(err)
       toast.error('Có lỗi xảy ra khi xóa bàn')
     } finally {
-      setConfirmDialog({isOpen: false, id: null})
+      setConfirmDialog({ isOpen: false, id: null })
     }
   }
 
@@ -146,9 +146,7 @@ export default function TablesPage() {
 
   const getQRUrl = (table: Table) => {
     if (typeof window === 'undefined') return ''
-    console.log(`${window.location.origin}/order/${table.id}`);
     return `${window.location.origin}/order/${table.id}`
-    
   }
 
   return (
@@ -189,7 +187,7 @@ export default function TablesPage() {
           ].map(s => (
             <button
               key={s.key}
-              className={`btn ${filterStatus === s.key ? 'btn-primary' : 'btn-secondary'}`}
+              className={`btn ${filterStatus === s.key ? 'btn-primary' : 'btn-secondary'} `}
               onClick={() => setFilterStatus(s.key)}
             >
               {s.label} <span style={{ fontWeight: 700, marginLeft: 4 }}>({s.count})</span>
@@ -205,7 +203,7 @@ export default function TablesPage() {
               <div
                 key={table.id}
                 className="card card-hover"
-                style={{ border: `2px solid ${colors.border}`, background: colors.bg, overflow: 'hidden' }}
+                style={{ border: `2px solid ${colors.border} `, background: colors.bg, overflow: 'hidden' }}
               >
                 {/* Card header */}
                 <div style={{ background: colors.headerBg, padding: '12px 14px', marginBottom: 0 }}>
@@ -220,7 +218,7 @@ export default function TablesPage() {
                       <button className="btn btn-ghost btn-sm" onClick={() => handleEdit(table)} style={{ padding: 4 }}>
                         <Edit2 size={13} color="#64748b" />
                       </button>
-                      <button className="btn btn-ghost btn-sm" onClick={() => setConfirmDialog({isOpen: true, id: table.id})} style={{ padding: 4 }}>
+                      <button className="btn btn-ghost btn-sm" onClick={() => setConfirmDialog({ isOpen: true, id: table.id })} style={{ padding: 4 }}>
                         <Trash2 size={13} color="#dc2626" />
                       </button>
                     </div>
@@ -233,7 +231,7 @@ export default function TablesPage() {
                   </div>
 
                   <div style={{ marginBottom: 10 }}>
-                    <span className={`badge badge-${table.status}`}>
+                    <span className={`badge badge - ${table.status} `}>
                       {STATUS_LABELS[table.status] || table.status}
                     </span>
                   </div>
@@ -323,23 +321,111 @@ export default function TablesPage() {
                 <img
                   src={`https://api.qrserver.com/v1/create-qr-code/?data=${encodeURIComponent(getQRUrl(qrModal))}&size=250x250&bgcolor=ffffff`}
                   alt="QR Code"
-                  style={{ width: '100%', height: 'auto', borderRadius: 8, border: '4px solid white' }}
+                  style={{ width: '100%', height: 'auto', borderRadius: 8, border: '4px solid white' }
+                  }
                 />
-              </div>
+              </div >
 
               <p style={{ fontWeight: 700, fontSize: 16, marginBottom: 4 }}>Bàn số {qrModal.tableNumber}</p>
               <p style={{ fontSize: 12, color: '#64748b', marginBottom: 20 }}>Khách hàng có thể quét mã này để đặt món</p>
 
               <div style={{ display: 'flex', gap: 10 }}>
-                <button className="btn btn-secondary" style={{ flex: 1 }} onClick={() => window.print()}>
+                <button className="btn btn-secondary" style={{ flex: 1 }} onClick={() => {
+                  const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?data=${encodeURIComponent(getQRUrl(qrModal))}&size=500x500&bgcolor=ffffff`
+                  const printWindow = window.open('', '_blank', 'width=500,height=700')
+                  if (!printWindow) return
+                  printWindow.document.write(`
+                    <!DOCTYPE html>
+                    <html>
+                      <head>
+                        <meta charset="utf-8" />
+                        <title>QR Bàn ${qrModal.tableNumber}</title>
+                        <style>
+                          @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap');
+                          * { margin: 0; padding: 0; box-sizing: border-box; }
+                          body {
+                            font-family: 'Inter', -apple-system, blinkmacsystemfont, 'Segoe UI', roboto, oxygen, ubuntu, cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+                            display: flex;
+                            flex-direction: column;
+                            align-items: center;
+                            justify-content: center;
+                            min-height: 100vh;
+                            padding: 40px;
+                            background: #fff;
+                            color: #1e293b;
+                          }
+                          .container {
+                            display: flex;
+                            flex-direction: column;
+                            align-items: center;
+                            text-align: center;
+                            max-width: 400px;
+                          }
+                          .qr-wrapper {
+                            padding: 24px;
+                            background: #fff;
+                            border: 2px solid #e2e8f0;
+                            border-radius: 24px;
+                            margin-bottom: 32px;
+                            display: flex;
+                            align-items: center;
+                            justify-content: center;
+                          }
+                          img {
+                            width: 300px;
+                            height: 300px;
+                            display: block;
+                          }
+                          h1 {
+                            font-size: 42px;
+                            font-weight: 800;
+                            margin-bottom: 12px;
+                            letter-spacing: -0.02em;
+                            color: #0f172a;
+                          }
+                          p {
+                            font-size: 16px;
+                            line-height: 1.5;
+                            color: #64748b;
+                            font-weight: 400;
+                            max-width: 280px;
+                          }
+                          @media print {
+                            body { padding: 0; }
+                            .container { padding: 20px; }
+                            @page { margin: 0; }
+                          }
+                        </style>
+                      </head>
+                      <body>
+                        <div class="container">
+                          <div class="qr-wrapper">
+                            <img src="${qrUrl}" alt="QR Code" />
+                          </div>
+                          <h1>Bàn ${qrModal.tableNumber}</h1>
+                          <p>Khách hàng có thể quét mã này để đặt món</p>
+                        </div>
+                        <script>
+                          window.onload = function() {
+                            setTimeout(() => {
+                              window.print();
+                              window.onafterprint = function() { window.close(); };
+                            }, 500);
+                          };
+                        <\/script>
+                      </body>
+                    </html>
+                  `)
+                  printWindow.document.close()
+                }}>
                   In mã QR
                 </button>
                 <button className="btn btn-primary" style={{ flex: 1 }} onClick={() => setQrModal(null)}>
                   Đóng
                 </button>
               </div>
-            </div>
-          </div>
+            </div >
+          </div >
         )}
 
         <ConfirmModal
@@ -348,10 +434,10 @@ export default function TablesPage() {
           message="Bạn có chắc chắn muốn xóa bàn này không? Hành động này không thể hoàn tác."
           type="danger"
           onConfirm={deleteTable}
-          onCancel={() => setConfirmDialog({isOpen: false, id: null})}
+          onCancel={() => setConfirmDialog({ isOpen: false, id: null })}
         />
-      </div>
-    </AuthLayout>
+      </div >
+    </AuthLayout >
   )
 }
 

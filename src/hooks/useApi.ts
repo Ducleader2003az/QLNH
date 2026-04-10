@@ -98,6 +98,21 @@ export function useMenuItems(restaurantId: string) {
   })
 }
 
+
+export function useMenuItemsInBranch(branchId: string) {
+  return useQuery({
+    queryKey: ['menu-items', branchId],
+    queryFn: async () => {
+      const { data } = await api.get(`/api/menu/items/branch/${branchId}`)
+      return data
+    },
+    enabled: !!branchId,
+    refetchOnMount: true,
+    staleTime: 0,
+    gcTime: 0,
+  })
+}
+
 export function useCreateMenuItem() {
   const queryClient = useQueryClient()
   return useMutation({
