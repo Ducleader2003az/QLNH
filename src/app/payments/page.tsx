@@ -12,7 +12,7 @@ export default function PaymentsPage() {
   const { user } = useAuth()
   const branchId = user?.branchId || ''
   const restaurantId = user?.restaurantId || ''
-  const isOwner = user?.role === 'owner'
+  const isOwner = user?.isOwner
 
   const { data: paymentsInBranch = [] } = useRecentPaymentsInBranch(branchId, {
     enabled: !isOwner && branchId != ''

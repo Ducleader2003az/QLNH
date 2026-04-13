@@ -36,7 +36,7 @@ export default function OrdersPage() {
   const restaurantId = user?.restaurantId || ''
   const queryClient = useQueryClient()
   const toast = useToast()
-  const isOwner = user?.role === 'owner'
+  const isOwner = user?.isOwner
 
   const { data: restaurant } = useRestaurant(restaurantId)
   const { data: branchs = [] } = useBranches(restaurantId)

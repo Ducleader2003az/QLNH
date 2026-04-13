@@ -37,7 +37,7 @@ const tableStatuses = [
 
 export default function TablesPage() {
   const { user } = useAuth()
-  const isOwner = user?.role?.toLowerCase() === 'owner'
+  const isOwner = user?.isOwner
   const restaurantId = user?.restaurantId || ''
   const toast = useToast()
 

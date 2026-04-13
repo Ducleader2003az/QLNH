@@ -20,7 +20,7 @@ export default function MenuPage() {
   const { user } = useAuth()
   const restaurantId = user?.restaurantId || ''
   const toast = useToast()
-  const isOwner = user?.role === 'owner'
+  const isOwner = user?.isOwner
   const branchId = user?.branchId || ''
 
   const { data: categories = [] } = useMenuCategories(restaurantId)

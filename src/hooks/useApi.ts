@@ -400,3 +400,47 @@ export function useAuditLogs(params: { page?: number; pageSize?: number; module?
   })
 }
 
+// ===== ROLES =====
+export function useRoles(restaurantId: string) {
+  return useQuery({
+    queryKey: ['roles', restaurantId],
+    queryFn: async () => {
+      const { data } = await api.get(`/api/roles/restaurant/${restaurantId}`)
+      return data
+    },
+    enabled: !!restaurantId,
+    refetchOnMount: true,
+  })
+}
+
+export function useCreateRole() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (dto: any) => {
+      const { data } = await api.post('/api/roles', dto)
+      return data
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['roles'] })
+  })
+}
+
+export function useUpdateRole() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ id, ...dto }: any) => {
+      const { data } = await api.put(`/api/roles/${id}`, dto)
+      return data
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['roles'] })
+  })
+}
+
+export function useDeleteRole() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (id: string) => {
+      await api.delete(`/api/roles/${id}`)
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['roles'] })
+  })
+}
