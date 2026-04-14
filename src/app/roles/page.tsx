@@ -15,10 +15,7 @@ const AVAILABLE_PERMISSIONS = [
   { id: 'RESERVATIONS', label: 'Đặt bàn', desc: 'Quản lý lịch đặt bàn' },
   { id: 'MENU', label: 'Thực đơn', desc: 'Sửa danh mục và món ăn' },
   { id: 'PAYMENTS', label: 'Thanh toán', desc: 'Xem giao dịch thanh toán' },
-  { id: 'PROMOTIONS', label: 'Khuyến mãi', desc: 'Tạo mã voucher, giảm giá' },
   { id: 'ACCOUNTS', label: 'Tài khoản', desc: 'Quản lý tài khoản nhân viên' },
-  { id: 'RESTAURANTS', label: 'Nhà hàng', desc: 'Cấu hình nhà hàng' },
-  { id: 'BRANCHES', label: 'Chi nhánh', desc: 'Khai báo chi nhánh' },
   { id: 'AUDIT', label: 'Audit Log', desc: 'Xem log hệ thống' },
 ]
 

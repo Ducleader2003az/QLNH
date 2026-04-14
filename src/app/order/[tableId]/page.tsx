@@ -110,14 +110,33 @@ export default function GuestOrderPage({ params }: { params: Promise<{ tableId: 
   const fetchHistory = async () => {
     if (!tableId) return
     try {
-      const { data } = await api.get(`/api/orders/table/${tableId}`)
-      // Assume the first one is the active order
-      const activeOrder = data.find((o: any) => o.status !== 'paid' && o.status !== 'cancelled')
+      const [orderRes, pendingRes] = await Promise.all([
+        api.get(`/api/orders/table/${tableId}`),
+        api.get(`/api/orders/pending/table/${tableId}`)
+      ])
+      
+      let items: any[] = []
+      
+      // Confirmed items
+      const activeOrder = orderRes.data.find((o: any) => o.status !== 'paid' && o.status !== 'cancelled')
       if (activeOrder) {
-        setHistoryItems(activeOrder.items || [])
-      } else {
-        setHistoryItems([])
+        items = [...(activeOrder.items || [])]
       }
+      
+      // Pending items
+      const pendingOrders = pendingRes.data
+      pendingOrders.forEach((p: any) => {
+        p.items.forEach((pi: any) => {
+          items.push({
+            menuItemName: pi.menuItemName,
+            quantity: pi.quantity,
+            subTotal: 0, // Not calculated yet
+            status: 'awaiting_confirmation'
+          })
+        })
+      })
+
+      setHistoryItems(items)
     } catch (err) {
       console.error('Failed to fetch order history', err)
     }

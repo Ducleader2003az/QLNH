@@ -39,7 +39,7 @@ const navItems = [
   // { href: '/inventory', label: 'Kho hàng', icon: Package, perm: 'INVENTORY' },
 
   { href: '/accounts', label: 'Tài khoản', icon: KeyRound, perm: 'ACCOUNTS' },
-  { href: '/roles', label: 'Phân quyền', icon: Shield, perm: 'ACCOUNTS' },
+  { href: '/roles', label: 'Phân quyền', icon: Shield, perm: 'DECENTRALIZATION' },
   { href: '/restaurants', label: 'Nhà hàng', icon: Building2, perm: 'RESTAURANTS' },
   { href: '/branches', label: 'Chi nhánh', icon: GitBranch, perm: 'BRANCHES' },
   { href: '/audit', label: 'Audit Log', icon: History, perm: 'AUDIT' },

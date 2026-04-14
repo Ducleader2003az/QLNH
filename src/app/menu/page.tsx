@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef, JSX } from 'react'
+import { useState, useRef, JSX, useEffect, startTransition } from 'react'
 import AuthLayout from '@/components/AuthLayout'
 import { useMenuCategories, useMenuItems, useCreateMenuItem, useUpdateMenuItem, useDeleteMenuItem, useBranches, useMenuItemsInBranch } from '@/hooks/useApi'
 import { Plus, Edit2, Trash2, BookOpen, Search, ToggleLeft, ToggleRight, ImagePlus, X, Loader2 } from 'lucide-react'
@@ -53,6 +53,7 @@ export default function MenuPage() {
   const [imageDragOver, setImageDragOver] = useState(false)
   const imageInputRef = useRef<HTMLInputElement>(null)
   const [comboItemSearch, setComboItemSearch] = useState('')
+  const [selectedBranchId, setSelectedBranchId] = useState<string>(user?.branchId || '')
 
   const filteredItems = items.filter((item: MenuItem) => {
     const matchCat = activeCategory === 'all' || item.categoryId === activeCategory
@@ -118,7 +119,6 @@ export default function MenuPage() {
       setShowItemForm(false)
       setEditItem(null)
       setItemForm({ name: '', price: '', description: '', unit: 'phần', categoryId: '', sortOrder: '0', imageUrl: '', itemType: 'single', comboItemIds: [] })
-      setSelectedBranchIds([])
       setImageFile(null)
       setImagePreview('')
       toast.success('Đã lưu món ăn')
@@ -142,6 +142,15 @@ export default function MenuPage() {
     await updateItem.mutateAsync({ id: item.id, isAvailable: !item.isAvailable })
   }
 
+  // Nếu là owner và chưa có chi nhánh nào được chọn, tự động chọn chi nhánh đầu tiên
+  useEffect(() => {
+    if (isOwner && !selectedBranchId && branches.length > 0) {
+      startTransition(() => {
+        setSelectedBranchId(prev => prev || branches[0].id)
+      })
+    }
+  }, [isOwner, selectedBranchId, branches])
+
   return (
     <AuthLayout>
       <div className="animate-fade-in">
@@ -154,11 +163,15 @@ export default function MenuPage() {
             <p style={{ color: '#64748b', fontSize: 13 }}>{items.length} món · {categories.length} danh mục</p>
           </div>
           <div style={{ display: 'flex', gap: 8 }}>
-            <button className="btn btn-secondary" onClick={() => setShowCatForm(true)} id="add-category-btn">
+            {/* Owner: chọn chi nhánh để xem bàn */}
+            {isOwner && (
+              <SelectBox options={branches} onChange={id => setSelectedBranchId(id)} value={selectedBranchId} optionLabel='name' optionValue='id' />
+            )}
+            <button className="btn btn-secondary flex-shrink-0" onClick={() => setShowCatForm(true)} id="add-category-btn">
               <Plus size={15} />
               Thêm danh mục
             </button>
-            <button className="btn btn-primary" onClick={() => { setShowItemForm(true); setEditItem(null); setItemForm({ name: '', price: '', description: '', unit: 'phần', categoryId: categories[0]?.id || '', sortOrder: '0', imageUrl: '', itemType: 'single', comboItemIds: [] }) }} id="add-item-btn">
+            <button className="btn btn-primary flex-shrink-0" onClick={() => { setShowItemForm(true); setEditItem(null); setItemForm({ name: '', price: '', description: '', unit: 'phần', categoryId: categories[0]?.id || '', sortOrder: '0', imageUrl: '', itemType: 'single', comboItemIds: [] }) }} id="add-item-btn">
               <Plus size={15} />
               Thêm món
             </button>
